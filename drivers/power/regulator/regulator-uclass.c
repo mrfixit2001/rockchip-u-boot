@@ -312,7 +312,7 @@ static void regulator_show(struct udevice *dev, int ret)
 	       (uc_pdata->always_on || uc_pdata->boot_on) ?
 	       "enabling" : "disabled");
 
-	printf(" | supsend %7duV, %s",
+	printf(" | suspend %7duV, %s",
 	       uc_pdata->suspend_uV,
 	       uc_pdata->suspend_on ? "enabling" : "disabled");
 	if (uc_pdata->init_uV != -ENODATA)

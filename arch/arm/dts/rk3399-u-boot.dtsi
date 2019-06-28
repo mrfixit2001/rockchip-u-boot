@@ -86,3 +86,15 @@
 	u-boot,dm-pre-reloc;
 	status = "okay";
 };
+
+&vopl {
+	u-boot,dm-pre-reloc;
+};
+
+&vopb {
+	u-boot,dm-pre-reloc;
+};
+
+&pinctrl {
+	u-boot,dm-pre-reloc;
+};

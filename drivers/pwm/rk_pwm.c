@@ -47,6 +47,7 @@ static int rk_pwm_set_invert(struct udevice *dev, uint channel, bool polarity)
 	}
 
 	debug("%s: polarity=%u\n", __func__, polarity);
+	priv->conf_polarity &= ~(PWM_DUTY_MASK | PWM_INACTIVE_MASK);
 	if (polarity)
 		priv->conf_polarity = PWM_DUTY_NEGATIVE | PWM_INACTIVE_POSTIVE;
 	else

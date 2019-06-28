@@ -4,12 +4,11 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
+
 #include <common.h>
 #include <command.h>
 #include <console.h>
 #include <mmc.h>
-#include <optee_include/OpteeClientInterface.h>
-#include <optee_include/OpteeClientApiLib.h>
 #include <optee_test.h>
 
 static int curr_device = -1;
@@ -17,10 +16,6 @@ static int curr_device = -1;
 static void print_mmcinfo(struct mmc *mmc)
 {
 	int i;
-	const char *timing[] = {
-		"Legacy", "High Speed", "High Speed", "SDR12",
-		"SDR25", "SDR50", "SDR104", "DDR50",
-		"DDR52", "HS200", "HS400", "HS400 Enhanced Strobe"};
 
 	printf("Device: %s\n", mmc->cfg->name);
 	printf("Manufacturer ID: %x\n", mmc->cid[0] >> 24);
@@ -29,8 +24,7 @@ static void print_mmcinfo(struct mmc *mmc)
 			(mmc->cid[1] >> 24), (mmc->cid[1] >> 16) & 0xff,
 			(mmc->cid[1] >> 8) & 0xff, mmc->cid[1] & 0xff);
 
-	printf("Timing Interface: %s\n", timing[mmc->timing]);
-	printf("Tran Speed: %d\n", mmc->clock);
+	printf("Tran Speed: %d\n", mmc->tran_speed);
 	printf("Rd Block Len: %d\n", mmc->read_bl_len);
 
 	printf("%s version %d.%d", IS_SD(mmc) ? "SD" : "MMC",
@@ -45,7 +39,7 @@ static void print_mmcinfo(struct mmc *mmc)
 	print_size(mmc->capacity, "\n");
 
 	printf("Bus Width: %d-bit%s\n", mmc->bus_width,
-			mmc_card_ddr(mmc) ? " DDR" : "");
+			mmc->ddr_mode ? " DDR" : "");
 
 	puts("Erase Group Size: ");
 	print_size(((u64)mmc->erase_grp_size) << 9, "\n");
@@ -164,105 +158,9 @@ static int do_mmc_test_secure_storage(cmd_tbl_t *cmdtp,
 
 	return CMD_RET_SUCCESS;
 }
-
-static int do_mmc_testefuse(cmd_tbl_t *cmdtp,
-		int flag, int argc, char * const argv[])
-{
-	uint32_t outbuf32[8];
-
-	trusty_read_attribute_hash(outbuf32, 8);
-
-	printf(" 0x%x  0x%x  0x%x  0x%x \n",
-		outbuf32[0], outbuf32[1], outbuf32[2], outbuf32[3]);
-	printf(" 0x%x  0x%x  0x%x  0x%x \n",
-		outbuf32[4], outbuf32[5], outbuf32[6], outbuf32[7]);
-
-	return CMD_RET_SUCCESS;
-}
-
 #endif
 
 #ifdef CONFIG_SUPPORT_EMMC_RPMB
-char temp_original_part;
-int init_rpmb(void)
-{
-	struct mmc *mmc;
-
-	mmc = init_mmc_device(curr_device, false);
-	if (!mmc)
-		return CMD_RET_FAILURE;
-
-	if (!(mmc->version & MMC_VERSION_MMC)) {
-		printf("It is not a EMMC device\n");
-		return CMD_RET_FAILURE;
-	}
-	if (mmc->version < MMC_VERSION_4_41) {
-		printf("RPMB not supported before version 4.41\n");
-		return CMD_RET_FAILURE;
-	}
-
-		/* Switch to the RPMB partition */
-#ifndef CONFIG_BLK
-	temp_original_part = mmc->block_dev.hwpart;
-	debug("mmc->block_dev.hwpart\n");
-#else
-	temp_original_part = mmc_get_blk_desc(mmc)->hwpart;
-	debug("mmc_get_blk_desc(mmc)->hwpart\n");
-#endif
-	debug("init_rpmb temp_original_part = 0x%X\n", temp_original_part);
-	if (blk_select_hwpart_devnum
-		(IF_TYPE_MMC, curr_device, MMC_PART_RPMB) != 0)
-		return CMD_RET_FAILURE;
-
-	return CMD_RET_SUCCESS;
-}
-
-int finish_rpmb(void)
-{
-	/* Return to original partition */
-	debug("finish_rpmb temp_original_part = 0x%X\n", temp_original_part);
-	if (blk_select_hwpart_devnum
-		(IF_TYPE_MMC, curr_device, temp_original_part) != 0)
-		return CMD_RET_FAILURE;
-
-	return CMD_RET_SUCCESS;
-}
-
-int do_readcounter(struct s_rpmb *requestpackets)
-{
-	struct mmc *mmc = find_mmc_device(curr_device);
-
-	return read_counter(mmc, requestpackets);
-}
-
-int do_programkey(struct s_rpmb *requestpackets)
-{
-	struct mmc *mmc = find_mmc_device(curr_device);
-
-	return program_key(mmc, requestpackets);
-}
-
-int do_authenticatedread(struct s_rpmb *requestpackets, uint16_t block_count)
-{
-	struct mmc *mmc = find_mmc_device(curr_device);
-
-	return authenticated_read(mmc, requestpackets, block_count);
-}
-
-int do_authenticatedwrite(struct s_rpmb *requestpackets)
-{
-	struct mmc *mmc = find_mmc_device(curr_device);
-
-	return authenticated_write(mmc, requestpackets);
-}
-
-struct mmc *do_returnmmc(void)
-{
-	struct mmc *mmc = find_mmc_device(curr_device);
-
-	return mmc;
-}
-
 static int confirm_key_prog(void)
 {
 	puts("Warning: Programming authentication key can be done only once !\n"
@@ -551,7 +449,7 @@ static int do_mmc_dev(cmd_tbl_t *cmdtp, int flag,
 		return CMD_RET_USAGE;
 	}
 
-	mmc = init_mmc_device(dev, false);
+	mmc = init_mmc_device(dev, true);
 	if (!mmc)
 		return CMD_RET_FAILURE;
 
@@ -944,7 +842,6 @@ static cmd_tbl_t cmd_mmc[] = {
 #endif
 #ifdef CONFIG_OPTEE_CLIENT
 	U_BOOT_CMD_MKENT(testsecurestorage, 1, 0, do_mmc_test_secure_storage, "", ""),
-	U_BOOT_CMD_MKENT(testefuse, 1, 0, do_mmc_testefuse, "", ""),
 #endif
 #ifdef CONFIG_SUPPORT_EMMC_RPMB
 	U_BOOT_CMD_MKENT(rpmb, CONFIG_SYS_MAXARGS, 1, do_mmcrpmb, "", ""),
@@ -1012,7 +909,6 @@ U_BOOT_CMD(
 #endif
 #ifdef CONFIG_OPTEE_CLIENT
 	"mmc testsecurestorage - test CA call static TA to store data in security\n"
-	"mmc testefuse - test CA call static TA,and TA read or write efuse\n"
 #endif
 #ifdef CONFIG_SUPPORT_EMMC_RPMB
 	"mmc rpmb read addr blk# cnt [address of auth-key] - block size is 256 bytes\n"
@@ -1033,4 +929,3 @@ U_BOOT_CMD(
 	"display MMC info",
 	"- display info of the current MMC device"
 );
-

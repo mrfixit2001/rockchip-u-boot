@@ -26,7 +26,7 @@ obj-$(CONFIG_MXC_OCOTP) += mxc_ocotp.o
 obj-$(CONFIG_MXS_OCOTP) += mxs_ocotp.o
 obj-$(CONFIG_NUVOTON_NCT6102D) += nuvoton_nct6102d.o
 obj-$(CONFIG_NS87308) += ns87308.o
-obj-$(CONFIG_$(SPL_)PWRSEQ) += pwrseq-uclass.o
+obj-$(CONFIG_PWRSEQ) += pwrseq-uclass.o
 ifdef CONFIG_DM_I2C
 ifndef CONFIG_SPL_BUILD
 obj-$(CONFIG_SANDBOX) += i2c_eeprom_emul.o

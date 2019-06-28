@@ -41,9 +41,9 @@ static struct mm_region rk3399_mem_map[] = {
 struct mm_region *mem_map = rk3399_mem_map;
 
 const char * const boot_devices[BROM_LAST_BOOTSOURCE + 1] = {
+	[BROM_BOOTSOURCE_SD] = "/dwmmc@fe320000",
 	[BROM_BOOTSOURCE_EMMC] = "/sdhci@fe330000",
 	[BROM_BOOTSOURCE_SPINOR] = "/spi@ff1d0000",
-	[BROM_BOOTSOURCE_SD] = "/dwmmc@fe320000",
 };
 
 #ifdef CONFIG_SPL_BUILD
@@ -70,11 +70,43 @@ void rockchip_stimer_init(void)
 #endif
 
 #define GRF_BASE	0xff770000
+#define GPIO0_BASE	0xff720000
 #define PMUGRF_BASE	0xff320000
 #define PMUSGRF_BASE	0xff330000
 #define PMUCRU_BASE	0xff750000
 #define NIU_PERILP_NSP_ADDR	0xffad8188
 #define QOS_PRIORITY_LEVEL(h, l)	((((h) & 3) << 8) | ((l) & 3))
+
+/*
+void board_init_sdmmc_pwr_en(void)
+{
+	struct rk3399_grf_regs * const grf = (void *)GRF_BASE;
+	struct rockchip_gpio_regs * const gpio0 = (void *)GPIO0_BASE;
+
+	printf("board_init_sdmmc_pwr_en\n");
+
+	rk_clrsetreg(&grf->com_iomux,
+		IOMUX_SEL_SDMMC_MASK,
+		IOMUX_SEL_SDMMC_M1 << IOMUX_SEL_SDMMC_SHIFT);
+
+	rk_clrsetreg(&grf->gpio0a_iomux,
+		GPIO0A1_SEL_MASK,
+		GPIO0A1_GPIO << GPIO0A1_SEL_SHIFT);
+
+	rk_clrsetreg(&grf->gpio4b_iomux,
+		GPIO4B0_SEL_MASK,
+		GPIO4B0_CARD_DATA_CLK_CMD_DETN
+		<< GPIO4B0_SEL_SHIFT);
+
+	// set GPIO0_A1 to GPIO_ACTIVE_LOW
+	rk_clrreg(&gpio0->swport_dr,
+		1 << RK_PA1);
+
+	// set GPIO0_A1 to OUTPUT
+	rk_setreg(&gpio0->swport_ddr, 
+		1 << RK_PA1);
+}
+*/
 
 int arch_cpu_init(void)
 {
@@ -115,6 +147,8 @@ int arch_cpu_init(void)
 
 	/* Set perilp_nsp QOS priority to 3 for USB 3.0 */
 	writel(QOS_PRIORITY_LEVEL(3, 3), NIU_PERILP_NSP_ADDR);
+
+	//board_init_sdmmc_pwr_en();
 
 	return 0;
 }
