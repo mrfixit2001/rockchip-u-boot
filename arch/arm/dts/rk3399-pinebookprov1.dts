@@ -13,9 +13,8 @@
 #include <dt-bindings/input/input.h>
 
 / {
-	model = "Rockchip RK3399 Evaluation Board";
-	compatible = "rockchip,rk3399-evb", "rockchip,rk3399",
-		     "google,rk3399evb-rev2";
+	model = "Rockchip RK3399 Pinebook Pro Prototype";
+	compatible = "rockchip,rk3399-pinebookprov1", "rockchip,rk3399";
 
 	forced-gpios {
 		sdmmc-pwr-gpio = <&gpio0 RK_PA1 GPIO_ACTIVE_HIGH>;
@@ -98,7 +97,7 @@
 		u-boot,dm-pre-reloc;
 		compatible = "regulator-fixed";
 		regulator-name = "vcc5v0_host";
-		gpio = <&gpio4 RK_PD2 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio4 RK_PC5 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&host_vbus_drv>;
 		regulator-min-microvolt = <5000000>;
@@ -112,7 +111,7 @@
 		compatible = "regulator-fixed";
 		regulator-name = "vcc5v0_usb3_host";
 		enable-active-high;
-		gpio = <&gpio1 RK_PB5 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio0 RK_PA6 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&host_usb3_drv>;
 		regulator-always-on;
@@ -131,19 +130,12 @@
 		regulator-boot-on;
 	};
 
-	clkin_gmac: external-gmac-clock {
-		compatible = "fixed-clock";
-		clock-frequency = <125000000>;
-		clock-output-names = "clkin_gmac";
-		#clock-cells = <0>;
-	};
-
 	backlight: backlight {
 		status = "okay";
 		compatible = "pwm-backlight";
 		pwms = <&pwm0 0 25000 0>;
 		power-supply = <&dc_12v>;
-		enable-gpios = <&gpio1 RK_PA0 GPIO_ACTIVE_HIGH>;
+		enable-gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
 		brightness-levels = <
 			  0   1   2   3   4   5   6   7
 			  8   9  10  11  12  13  14  15
@@ -185,7 +177,7 @@
 		compatible = "simple-panel";
 		backlight = <&backlight>;
 		power-supply = <&vcc3v3_s0>;
-		enable-gpios = <&gpio1 RK_PA0 GPIO_ACTIVE_HIGH>;
+		enable-gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
 		prepare-delay-ms = <20>;
 		enable-delay-ms = <20>;
 		pinctrl-names = "default";
@@ -207,22 +199,7 @@
 			};
 		};
 	};
-/*
-	vcc12v_pcie: vcc12v-pcie-regulator {
-		u-boot,dm-pre-reloc;
-		compatible = "regulator-fixed";
-		regulator-name = "vcc12v_pcie";
-		regulator-min-microvolt = <12000000>;
-		regulator-max-microvolt = <12000000>;
-		enable-active-high;
-		gpio = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pcie_pwr_en>;
-		regulator-always-on;
-		regulator-boot-on;
-		vin-supply = <&dc_12v>;
-	};
-*/
+
 	vcc1v8_sdio: vcca1v8_sdio: vcc1v8-sdio {
 		u-boot,dm-pre-reloc;
 		compatible = "regulator-fixed";
@@ -623,11 +600,11 @@
 
 	usb2 {
 		host_vbus_drv: host-vbus-drv {
-			rockchip,pins = <4 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
+			rockchip,pins = <4 RK_PC5 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 
 		host_usb3_drv: host-usb3-drv {
-			rockchip,pins = <1 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
+			rockchip,pins = <0 RK_PA6 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
@@ -689,7 +666,7 @@
 
 	edp {
 		lcd_en: lcd-en {
-			rockchip,pins = <1 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
+			rockchip,pins = <1 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
@@ -723,42 +700,10 @@
 	};
 };
 
-/*
-&gmac {
-        phy-supply = <&vcc_phy>;
-	phy-mode = "rgmii";
-	clock_in_out = "input";
-	snps,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
-	snps,reset-active-low;
-	snps,reset-delays-us = <0 10000 50000>;
-	assigned-clocks = <&cru SCLK_RMII_SRC>;
-	assigned-clock-parents = <&clkin_gmac>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&rgmii_pins>;
-	tx_delay = <0x28>;
-	rx_delay = <0x20>;
-	status = "okay";
-};
-*/
-
 &display_subsystem {
 	status = "okay";
 	logo-memory-region = <&drm_logo>;
 };
-
-/*
-&route_hdmi {
-	status = "okay";
-};
-
-&hdmi_in_vopl {
-	status = "disabled";
-};
-
-&hdmi_in_vopb {
-	status = "okay";
-};
-*/
 
 &route_edp {
 	status = "okay";
