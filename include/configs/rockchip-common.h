@@ -20,7 +20,7 @@
 
 #define CONFIG_SYS_NS16550_MEM32
 
-#define CONFIG_NR_DRAM_BANKS		4
+#define CONFIG_NR_DRAM_BANKS		12
 
 #ifndef CONFIG_SPL_BUILD
 #include <config_distro_defaults.h>
@@ -115,6 +115,8 @@
 		"setenv devtype mmc; setenv devnum 1; echo Boot from SDcard;" \
 	"elif mmc dev 0; then " \
 		"setenv devtype mmc; setenv devnum 0;" \
+	"elif mtd dev 0; then " \
+		"setenv devtype mtd; setenv devnum 0;" \
 	"elif rknand dev 0; then " \
 		"setenv devtype rknand; setenv devnum 0;" \
 	"elif rksfc dev 0; then " \

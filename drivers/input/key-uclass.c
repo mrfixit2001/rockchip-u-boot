@@ -163,24 +163,62 @@ try_again:
 }
 
 #ifdef CONFIG_IRQ
+#if defined(CONFIG_PWRKEY_DNL_TRIGGER_NUM) && \
+		(CONFIG_PWRKEY_DNL_TRIGGER_NUM > 0)
+static void power_key_download(struct dm_key_uclass_platdata *uc_key)
+{
+	int trig_cnt = CONFIG_PWRKEY_DNL_TRIGGER_NUM;
+	static u64 old_rise_ms;
+
+	if (uc_key->code == KEY_POWER && old_rise_ms != uc_key->rise_ms) {
+		old_rise_ms = uc_key->rise_ms;
+		uc_key->trig_cnt++;
+		if (uc_key->trig_cnt >= trig_cnt) {
+			printf("\nEnter download mode by pwrkey\n");
+			irq_handler_disable(uc_key->irq);
+			run_command("rockusb 0 $devtype $devnum", 0);
+			run_command("rbrom", 0);
+		}
+	}
+}
+
+int pwrkey_download_init(void)
+{
+	return (KEY_NOT_EXIST == key_read(KEY_POWER));
+}
+#endif
+
 static void gpio_irq_handler(int irq, void *data)
 {
-	struct dm_key_uclass_platdata *uc_key = data;
+	struct udevice *dev = data;
+	struct dm_key_uclass_platdata *uc_key = dev_get_uclass_platdata(dev);
 
 	if (uc_key->irq != irq)
 		return;
 
-	if (irq_get_gpio_level(irq)) {
-		uc_key->rise_ms = key_timer(0);
-		KEY_DBG("%s: key dn: %llu ms\n", uc_key->name, uc_key->fall_ms);
+	if (uc_key->irq_thread) {
+		uc_key->irq_thread(irq, data);
 	} else {
-		uc_key->fall_ms = key_timer(0);
-		KEY_DBG("%s: key up: %llu ms\n", uc_key->name, uc_key->rise_ms);
+		if (irq_get_gpio_level(irq)) {
+			uc_key->rise_ms = key_timer(0);
+			KEY_DBG("%s: key dn: %llu ms\n",
+				uc_key->name, uc_key->fall_ms);
+		} else {
+			uc_key->fall_ms = key_timer(0);
+			KEY_DBG("%s: key up: %llu ms\n",
+				uc_key->name, uc_key->rise_ms);
+		}
+
+		/* Must delay */
+		mdelay(10);
+		irq_revert_irq_type(irq);
 	}
 
-	/* Must delay */
-	mdelay(10);
-	irq_revert_irq_type(irq);
+	/* Hook event: enter download mode by pwrkey */
+#if defined(CONFIG_PWRKEY_DNL_TRIGGER_NUM) && \
+		(CONFIG_PWRKEY_DNL_TRIGGER_NUM > 0)
+	power_key_download(uc_key);
+#endif
 }
 #endif
 
@@ -233,9 +271,6 @@ static int key_post_probe(struct udevice *dev)
 					uc_key->adcval - margin : 0;
 	} else {
 		if (uc_key->code == KEY_POWER) {
-			/* The gpio irq has been setup by key driver */
-			if (uc_key->irq)
-				goto finish;
 #ifdef CONFIG_IRQ
 			int irq;
 
@@ -247,8 +282,14 @@ static int key_post_probe(struct udevice *dev)
 				return irq;
 			}
 
+			if (uc_key->code != KEY_POWER && uc_key->irq_thread) {
+				KEY_WARN("%s: only power key can request irq thread\n",
+					 uc_key->name);
+				return -EINVAL;
+			}
+
 			uc_key->irq = irq;
-			irq_install_handler(irq, gpio_irq_handler, uc_key);
+			irq_install_handler(irq, gpio_irq_handler, dev);
 			irq_set_irq_type(irq, IRQ_TYPE_EDGE_FALLING);
 			irq_handler_enable(irq);
 #else
@@ -265,7 +306,6 @@ static int key_post_probe(struct udevice *dev)
 		}
 	}
 
-finish:
 #ifdef DEBUG
 	printf("[%s] (%s, %s, %s):\n", uc_key->name,
 	       uc_key->type == ADC_KEY ? "ADC" : "GPIO",

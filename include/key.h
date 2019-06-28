@@ -39,11 +39,16 @@ struct dm_key_uclass_platdata {
 
 	/* GPIO key */
 	u32 irq;
-	u32 gpios[2];
+	u32 gpios[2];	/* gpios[0]: gpio controller phandle, gpios[1]: pin */
 	struct gpio_desc gpio;
 
 	u64 rise_ms;
 	u64 fall_ms;
+
+	u32 trig_cnt;
+
+	/* Only for pwrkey gpio irq */
+	void (*irq_thread)(int irq, struct udevice *dev);
 };
 
 /* Use it instead of get_timer() in key interrupt handler */
@@ -51,6 +56,9 @@ uint64_t key_timer(uint64_t base);
 
 /* Confirm if your key value is a press event */
 int key_is_pressed(int keyval);
+
+/* Pwrkey download mode init */
+int pwrkey_download_init(void);
 
 /* Read key */
 int key_read(int code);

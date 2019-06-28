@@ -125,6 +125,19 @@ config SPL_DISPLAY_PRINT
 	  banner ("U-Boot SPL ..."). This function should be provided by
 	  the board.
 
+config SPL_SKIP_RELOCATE
+	bool "Skip code relocation in SPL"
+	default y
+	help
+	  The SPL code will be relocated to a high memory if you say no here.
+	  Only ARM64 and PowerPC SPL support relocate now.
+
+config SPL_RELOC_TEXT_BASE
+	hex "Address the SPL relocate to"
+	depends on !SPL_SKIP_RELOCATE
+	help
+	  The address on the ram where the SPL relocate to.
+
 config SYS_MMCSD_RAW_MODE_U_BOOT_USE_SECTOR
 	bool "MMC raw mode: by sector"
 	default y if ARCH_SUNXI || ARCH_DAVINCI || ARCH_UNIPHIER ||ARCH_MX6 || \
@@ -744,6 +757,24 @@ config SPL_OPTEE
 	help
 	  OP-TEE is an open source Trusted OS  which is loaded by SPL.
 	  More detail at: https://github.com/OP-TEE/optee_os
+
+config SPL_LOAD_RKFW
+	bool "SPL support load rockchip firmware images"
+	depends on SPL
+	help
+	  This enables SPL support load rockchip firmware images.
+	  Please define both RKFW_TRUST_SECTOR and RKFW_U_BOOT_SECTOR
+	  for trust and U-Boot images.
+
+config RKFW_TRUST_SECTOR
+	hex "rockchip trust image load sector"
+	depends on SPL_LOAD_RKFW
+	default 0x6000
+
+config RKFW_U_BOOT_SECTOR
+	hex "rockchip uboot image load sector"
+	depends on SPL_LOAD_RKFW
+	default 0x4000
 
 config TPL
 	bool

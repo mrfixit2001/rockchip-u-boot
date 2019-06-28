@@ -9,6 +9,7 @@
 #include <bidram.h>
 #include <dm.h>
 #include <debug_uart.h>
+#include <key.h>
 #include <memblk.h>
 #include <ram.h>
 #include <syscon.h>
@@ -17,9 +18,12 @@
 #include <asm/arch/vendor.h>
 #include <misc.h>
 #include <asm/gpio.h>
+#include <dm/uclass-internal.h>
 #include <asm/arch/clock.h>
+#include <asm/arch/cpu.h>
 #include <asm/arch/periph.h>
 #include <asm/arch/boot_mode.h>
+#include <asm/arch/hotkey.h>
 #include <asm/arch/rk_atags.h>
 #include <asm/arch/param.h>
 #ifdef CONFIG_DM_CHARGE_DISPLAY
@@ -234,6 +238,112 @@ int board_late_init(void)
 #ifdef CONFIG_USING_KERNEL_DTB
 #include <asm/arch/resource_img.h>
 
+/* Here, only fixup cru phandle, pmucru is not included */
+static int phandles_fixup(void *fdt)
+{
+	const char *props[] = { "clocks", "assigned-clocks" };
+	struct udevice *dev;
+	struct uclass *uc;
+	const char *comp;
+	u32 id, nclocks;
+	u32 *clocks;
+	int phandle, ncells;
+	int off, offset;
+	int ret, length;
+	int i, j;
+	int first_phandle = -1;
+
+	phandle = -ENODATA;
+	ncells = -ENODATA;
+
+	/* fdt points to kernel dtb, getting cru phandle and "#clock-cells" */
+	for (offset = fdt_next_node(fdt, 0, NULL);
+	     offset >= 0;
+	     offset = fdt_next_node(fdt, offset, NULL)) {
+		comp = fdt_getprop(fdt, offset, "compatible", NULL);
+		if (!comp)
+			continue;
+
+		/* Actually, this is not a good method to get cru node */
+		off = strlen(comp) - strlen("-cru");
+		if (off > 0 && !strncmp(comp + off, "-cru", 4)) {
+			phandle = fdt_get_phandle(fdt, offset);
+			ncells = fdtdec_get_int(fdt, offset,
+						"#clock-cells", -ENODATA);
+			break;
+		}
+	}
+
+	if (phandle == -ENODATA || ncells == -ENODATA)
+		return 0;
+
+	debug("%s: target cru: clock-cells:%d, phandle:0x%x\n",
+	      __func__, ncells, fdt32_to_cpu(phandle));
+
+	/* Try to fixup all cru phandle from U-Boot dtb nodes */
+	for (id = 0; id < UCLASS_COUNT; id++) {
+		ret = uclass_get(id, &uc);
+		if (ret)
+			continue;
+
+		if (list_empty(&uc->dev_head))
+			continue;
+
+		list_for_each_entry(dev, &uc->dev_head, uclass_node) {
+			/* Only U-Boot node go further */
+			if (!dev_read_bool(dev, "u-boot,dm-pre-reloc"))
+				continue;
+
+			for (i = 0; i < ARRAY_SIZE(props); i++) {
+				if (!dev_read_prop(dev, props[i], &length))
+					continue;
+
+				clocks = malloc(length);
+				if (!clocks)
+					return -ENOMEM;
+
+				/* Read "props[]" which contains cru phandle */
+				nclocks = length / sizeof(u32);
+				if (dev_read_u32_array(dev, props[i],
+						       clocks, nclocks)) {
+					free(clocks);
+					continue;
+				}
+
+				/* Fixup with kernel cru phandle */
+				for (j = 0; j < nclocks; j += (ncells + 1)) {
+					/*
+					 * Check: update pmucru phandle with cru
+					 * phandle by mistake.
+					 */
+					if (first_phandle == -1)
+						first_phandle = clocks[j];
+
+					if (clocks[j] != first_phandle) {
+						debug("WARN: %s: first cru phandle=%d, this=%d\n",
+						      dev_read_name(dev),
+						      first_phandle, clocks[j]);
+						continue;
+					}
+
+					clocks[j] = phandle;
+				}
+
+				/*
+				 * Override live dt nodes but not fdt nodes,
+				 * because all U-Boot nodes has been imported
+				 * to live dt nodes, should use "dev_xxx()".
+				 */
+				dev_write_u32_array(dev, props[i],
+						    clocks, nclocks);
+				free(clocks);
+			}
+		}
+	}
+
+	return 0;
+}
+
 int init_kernel_dtb(void)
 {
 	int ret = 0;
@@ -250,6 +360,12 @@ int init_kernel_dtb(void)
 		printf("%s dtb in resource read fail\n", __func__);
 		return 0;
 	}
+
+	/*
+	 * There is a phandle miss match between U-Boot and kernel dtb node,
+	 * the typical is cru phandle, we fixup it in U-Boot live dt nodes.
+	 */
+	phandles_fixup((void *)fdt_addr);
 
 	of_live_build((void *)fdt_addr, (struct device_node **)&gd->of_root);
 
@@ -268,28 +384,67 @@ int init_kernel_dtb(void)
 
 void board_env_fixup(void)
 {
-	ulong kernel_addr_r;
+	struct memblock mem;
+	ulong u_addr_r;
+	phys_size_t end;
+	char *addr_r;
 
-	if (gd->flags & GD_FLG_BL32_ENABLED)
-		return;
+#ifdef ENV_MEM_LAYOUT_SETTINGS1
+	const char *env_addr0[] = {
+		"scriptaddr", "pxefile_addr_r",
+		"fdt_addr_r", "kernel_addr_r", "ramdisk_addr_r",
+	};
+	const char *env_addr1[] = {
+		"scriptaddr1", "pxefile_addr1_r",
+		"fdt_addr1_r", "kernel_addr1_r", "ramdisk_addr1_r",
+	};
+	int i;
 
+	/* 128M is a typical ram size for most platform, so as default here */
+	if (gd->ram_size <= SZ_128M) {
+		/* Replace orignal xxx_addr_r */
+		for (i = 0; i < ARRAY_SIZE(env_addr1); i++) {
+			addr_r = env_get(env_addr1[i]);
+			if (addr_r)
+				env_set(env_addr0[i], addr_r);
+		}
+	}
+#endif
 	/* If bl32 is disabled, maybe kernel can be load to lower address. */
-	kernel_addr_r = env_get_ulong("kernel_addr_no_bl32_r", 16, -1);
-	if (kernel_addr_r != -1)
-		env_set_hex("kernel_addr_r", kernel_addr_r);
+	if (!(gd->flags & GD_FLG_BL32_ENABLED)) {
+		addr_r = env_get("kernel_addr_no_bl32_r");
+		if (addr_r)
+			env_set("kernel_addr_r", addr_r);
+	/* If bl32 is enlarged, we move ramdisk addr right behind it */
+	} else {
+		mem = param_parse_optee_mem();
+		end = mem.base + mem.size;
+		u_addr_r = env_get_ulong("ramdisk_addr_r", 16, 0);
+		if (u_addr_r >= mem.base && u_addr_r < end)
+			env_set_hex("ramdisk_addr_r", end);
+	}
 }
 
-static void early_bootrom_download(void)
+static void early_download_init(void)
 {
+#if defined(CONFIG_PWRKEY_DNL_TRIGGER_NUM) && \
+		(CONFIG_PWRKEY_DNL_TRIGGER_NUM > 0)
+	if (pwrkey_download_init())
+		printf("Pwrkey download init failed\n");
+#endif
+
 	if (!tstc())
 		return;
 
 	gd->console_evt = getc();
+	if (gd->console_evt <= 0x1a) /* 'z' */
+		printf("Hotkey: ctrl+%c\n", (gd->console_evt + 'a' - 1));
+
 #if (CONFIG_ROCKCHIP_BOOT_MODE_REG > 0)
 	/* ctrl+b */
-	if (gd->console_evt == CONSOLE_EVT_CTRL_B) {
+	if (is_hotkey(HK_BROM_DNL)) {
 		printf("Enter bootrom download...");
-		mdelay(100);
+		flushc();
 		writel(BOOT_BROM_DOWNLOAD, CONFIG_ROCKCHIP_BOOT_MODE_REG);
 		do_reset(NULL, 0, 0, NULL);
 		printf("failed!\n");
@@ -302,11 +457,12 @@ int board_init(void)
 	int ret;
 
 	board_debug_uart_init();
-	early_bootrom_download();
 
 #ifdef CONFIG_USING_KERNEL_DTB
 	init_kernel_dtb();
 #endif
+	early_download_init();
+
 	/*
 	 * pmucru isn't referenced on some platforms, so pmucru driver can't
 	 * probe that the "assigned-clocks" is unused.
@@ -404,7 +560,7 @@ int board_fdt_fixup(void *blob)
 	 * - RK1808: MMC strength 2mA;
 	 */
 #ifdef CONFIG_ROCKCHIP_RK3288
-	if (readl(0xff980004) == 0x1A) {
+	if (soc_is_rk3288w()) {
 		ret = fdt_setprop_string(blob, 0,
 					 "compatible", "rockchip,rk3288w");
 		if (ret)
@@ -479,9 +635,17 @@ int board_initr_caches_fixup(void)
 
 void board_quiesce_devices(void)
 {
+	hotkey_run(HK_CMDLINE);
+	hotkey_run(HK_CLI);
+
 #ifdef CONFIG_ROCKCHIP_PRELOADER_ATAGS
 	/* Destroy atags makes next warm boot safer */
 	atags_destroy();
+#endif
+
+#if defined(CONFIG_CONSOLE_RECORD)
+	/* Print record console data */
+	console_record_print_purge();
 #endif
 }
 

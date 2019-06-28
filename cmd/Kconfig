@@ -532,6 +532,15 @@ config CMD_STRINGS
 	  within the range are displayed. The minimum number of characters
 	  for a sequence to be considered a string can be provided.
 
+config CMD_CRYPTO
+	bool "crypto test"
+	depends on DM_CRYPTO
+	select SHA1
+	select SHA256
+	select MD5
+	help
+	  Crypto test.
+
 endmenu
 
 menu "Compression commands"
@@ -1488,6 +1497,11 @@ config CMD_MTDPARTS
 	bool "MTD partition support"
 	help
 	  MTD partition support
+
+config CMD_MTD
+	bool "MTD support"
+	help
+	  MTD support
 
 config MTDIDS_DEFAULT
 	string "Default MTD IDs"

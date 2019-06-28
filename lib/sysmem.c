@@ -12,8 +12,10 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 #define SYSMEM_MAGIC		0x4D454D53	/* "SMEM" */
-#define SYSMEM_ALLOC_ANYWHERE	0
+
+#define LMB_ALLOC_ANYWHERE	0		/* sync with lmb.c */
 #define SYSMEM_ALLOC_NO_ALIGN	1
+#define SYSMEM_ALLOC_ANYWHERE	2
 
 #define SYSMEM_I(fmt, args...)	printf("Sysmem: "fmt, ##args)
 #define SYSMEM_W(fmt, args...)	printf("Sysmem Warn: "fmt, ##args)
@@ -119,6 +121,41 @@ void sysmem_dump(void)
 	       SIZE_MB((ulong)reserved_size),
 	       SIZE_KB((ulong)reserved_size));
 	printf("    --------------------------------------------------------------------\n\n");
+}
+
+void sysmem_overflow_check(void)
+{
+	struct sysmem *sysmem = &plat_sysmem;
+	struct list_head *node;
+	struct memcheck *check;
+	struct memblock *mem;
+	int overflow;
+
+	if (!sysmem_has_init())
+		return;
+
+	list_for_each(node, &sysmem->allocated_head) {
+		mem = list_entry(node, struct memblock, node);
+		if (mem->attr.flags & M_ATTR_OFC) {
+			check = (struct memcheck *)
+				(mem->base + mem->size - sizeof(*check));
+			overflow = (check->magic != SYSMEM_MAGIC);
+		} else if (mem->attr.flags & M_ATTR_HOFC) {
+			check = (struct memcheck *)
+				(mem->base - sizeof(*check));
+			overflow = (check->magic != SYSMEM_MAGIC);
+		} else {
+			overflow = 0;
+		}
+
+		if (overflow)
+			break;
+	}
+
+	if (overflow) {
+		SYSMEM_E("Found there is region overflow!\n");
+		sysmem_dump();
+	}
 }
 
 static inline int sysmem_is_overlap(phys_addr_t base1, phys_size_t size1,
@@ -245,6 +282,25 @@ static void *sysmem_alloc_align_base(enum memblk_id id,
 	} else if (id > MEMBLK_ID_UNK && id < MEMBLK_ID_MAX) {
 		attr = mem_attr[id];
 		name = attr.name;
+
+		/*
+		 * Fixup base and place right after U-Boot stack, adding a lot
+		 * of space(4KB) maybe safer.
+		 */
+		if ((id == MEMBLK_ID_AVB_ANDROID) &&
+		    (base == SYSMEM_ALLOC_ANYWHERE)) {
+			base = gd->start_addr_sp -
+					CONFIG_SYS_STACK_SIZE - size - 0x1000;
+		/*
+		 * So far, we use M_ATTR_PEEK for uncompress kernel alloc, and
+		 * for ARMv8 enabling AArch32 mode, the ATF is still AArch64
+		 * and ocuppies 0~1MB and shmem 1~2M. So let's ignore the region
+		 * which overlap with them.
+		 */
+		} else if (attr.flags & M_ATTR_PEEK) {
+			if (base <= gd->bd->bi_dram[0].start)
+				base = gd->bd->bi_dram[0].start;
+		}
 	} else {
 		SYSMEM_E("Unsupport memblk id %d for alloc sysmem\n", id);
 		goto out;
@@ -253,6 +309,19 @@ static void *sysmem_alloc_align_base(enum memblk_id id,
 	if (!size) {
 		SYSMEM_E("\"%s\" size is 0 for alloc sysmem\n", name);
 		goto out;
+	}
+
+	/*
+	 * Some modules use "sysmem_alloc()" to alloc region for storage
+	 * read/write buffer, it should be aligned to cacheline size. eg: AVB.
+	 *
+	 * Aligned down to cacheline size if not aligned, otherwise the tail
+	 * of region maybe overflow.
+	 */
+	if (attr.flags & M_ATTR_CACHELINE_ALIGN &&
+	    !IS_ALIGNED(base, ARCH_DMA_MINALIGN)) {
+		base = ALIGN(base, ARCH_DMA_MINALIGN);
+		base -= ARCH_DMA_MINALIGN;
 	}
 
 	if (!IS_ALIGNED(base, 4)) {
@@ -312,7 +381,7 @@ static void *sysmem_alloc_align_base(enum memblk_id id,
 
 	/* Alloc anywhere ? */
 	if (base == SYSMEM_ALLOC_ANYWHERE)
-		alloc_base = base;
+		alloc_base = LMB_ALLOC_ANYWHERE;
 	else
 		alloc_base = base + alloc_size;	/* LMB is align down alloc mechanism */
 
@@ -353,6 +422,7 @@ static void *sysmem_alloc_align_base(enum memblk_id id,
 	} else {
 		SYSMEM_E("Failed to alloc \"%s\" at 0x%08lx - 0x%08lx\n",
 			 name, (ulong)base, (ulong)(base + size));
+		goto out;
 	}
 
 	SYSMEM_D("Exit alloc: \"%s\", paddr=0x%08lx, size=0x%08lx, align=0x%x, anywhere=%d\n",
@@ -361,6 +431,13 @@ static void *sysmem_alloc_align_base(enum memblk_id id,
 	return (void *)paddr;
 
 out:
+	/*
+	 * Why: base + sizeof(ulong) ?
+	 * It's a not standard way to handle the case: the input base is 0.
+	 */
+	if (base == 0)
+		base = base + sizeof(ulong);
+
 	return (attr.flags & M_ATTR_PEEK) ? (void *)base : NULL;
 }
 

@@ -51,6 +51,7 @@ static uint8_t gBuf[BL3X_FILESIZE_MAX];
 static bool gSubfix;
 static char *gLegacyPath;
 static char *gNewPath;
+static char *gPrePath;
 static uint8_t gRSAmode = RSA_SEL_2048;
 static uint8_t gSHAmode = SHA_SEL_256;
 static bool gIgnoreBL32;
@@ -109,6 +110,11 @@ static inline void fixPath(char *path)
 			strcpy(path, gNewPath);
 			strcat(path, tmp);
 		}
+	} else if ((ulong)path != (ulong)gOpts.outPath && /* ignore output */
+		   gPrePath && strncmp(path, gPrePath, strlen(gPrePath))) {
+		strcpy(tmp, path);
+		strcpy(path, gPrePath);
+		strcat(path, tmp);
 	}
 }
 
@@ -215,6 +221,7 @@ static bool parseOut(FILE *file)
 	}
 	if (fscanf(file, OPT_OUT_PATH "=%[^\r^\n]", gOpts.outPath) != 1)
 		return false;
+	/* fixPath(gOpts.outPath); */
 	printf("out:%s\n", gOpts.outPath);
 
 	return true;
@@ -833,6 +840,7 @@ static void printHelp(void)
 	printf("\t" OPT_VERSION "\t\tDisplay version information.\n");
 	printf("\t" OPT_SUBFIX "\t\tSpec subfix.\n");
 	printf("\t" OPT_REPLACE "\t\tReplace some part of binary path.\n");
+	printf("\t" OPT_PREPATH "\t\tAdd prefix path of binary path.\n");
 	printf("\t" OPT_RSA "\t\t\tRSA mode.\"--rsa [mode]\", [mode] can be: "
 	       "0(none), 1(1024), 2(2048), 3(2048 pss).\n");
 	printf("\t" OPT_SHA
@@ -870,6 +878,9 @@ int main(int argc, char **argv)
 			gLegacyPath = argv[i];
 			i++;
 			gNewPath = argv[i];
+		} else if (!strcmp(OPT_PREPATH, argv[i])) {
+			i++;
+			gPrePath = argv[i];
 		} else if (!strcmp(OPT_RSA, argv[i])) {
 			i++;
 			if (!is_digit(*(argv[i]))) {

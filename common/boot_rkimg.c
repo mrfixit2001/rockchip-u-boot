@@ -6,9 +6,11 @@
 
 #include <common.h>
 #include <bootm.h>
+#include <mmc.h>
 #include <linux/list.h>
 #include <linux/libfdt.h>
 #include <malloc.h>
+#include <asm/arch/hotkey.h>
 #include <asm/arch/resource_img.h>
 #include <asm/arch/rockchip_crc.h>
 #include <boot_rkimg.h>
@@ -196,6 +198,9 @@ int get_bootdev_type(void)
 	} else if (!strcmp(devtype, "ramdisk")) {
 		type = IF_TYPE_RAMDISK;
 		boot_media = "ramdisk";
+	} else if (!strcmp(devtype, "mtd")) {
+		type = IF_TYPE_MTD;
+		boot_media = "mtd";
 	} else {
 		/* Add new to support */
 	}
@@ -228,13 +233,28 @@ int get_bootdev_type(void)
 				 "storagemedia=%s androidboot.mode=%s",
 				 boot_media, boot_media);
 #else
+		/*
+		 * 1. "storagemedia": This is a legacy variable to indicate board
+		 *    storage media for kernel and android.
+		 *
+		 * 2. "androidboot.storagemedia": The same purpose as "storagemedia",
+		 *    but the android framework will auto create property by
+		 *    variable with format "androidboot.xxx", eg:
+		 *
+		 *    "androidboot.storagemedia" => "ro.boot.storagemedia".
+		 *
+		 *    So, U-Boot pass this new variable is only for the convenience
+		 *    to Android.
+		 */
 		if (env_exist("bootargs", "androidboot.mode=charger"))
 			snprintf(boot_options, sizeof(boot_options),
-				 "storagemedia=%s", boot_media);
+				 "storagemedia=%s androidboot.storagemedia=%s",
+				 boot_media, boot_media);
 		else
 			snprintf(boot_options, sizeof(boot_options),
-				 "storagemedia=%s androidboot.mode=normal",
-				 boot_media);
+				 "storagemedia=%s androidboot.storagemedia=%s "
+				 "androidboot.mode=normal ",
+				 boot_media, boot_media);
 #endif
 		env_update("bootargs", boot_options);
 	}
@@ -260,6 +280,20 @@ struct blk_desc *rockchip_get_bootdev(void)
 		printf("%s: can't find dev_desc!\n", __func__);
 		return NULL;
 	}
+
+#ifdef CONFIG_MMC
+	if (dev_type == IF_TYPE_MMC) {
+		struct mmc *mmc;
+		const char *timing[] = {
+			"Legacy", "High Speed", "High Speed", "SDR12",
+			"SDR25", "SDR50", "SDR104", "DDR50",
+			"DDR52", "HS200", "HS400", "HS400 Enhanced Strobe"};
+
+		mmc = find_mmc_device(devnum);
+		printf("MMC%d: %s, %dMhz\n", devnum,
+		        timing[mmc->timing], mmc->clock / 1000000);
+	}
+#endif
 
 	printf("PartType: %s\n", part_get_type(dev_desc));
 
@@ -401,26 +435,28 @@ int rockchip_get_boot_mode(void)
 	}
 
 fallback:
-	/* Mode from misc partition */
-	if (bmsg && !strcmp(bmsg->command, "boot-recovery")) {
-		boot_mode = BOOT_MODE_RECOVERY;
+	/*
+	 * Boot mode priority
+	 *
+	 * Anyway, we should set download boot mode as the highest priority, so:
+	 *
+	 * reboot loader/bootloader/fastboot > misc partition "recovery" > reboot xxx.
+	 */
+	reg_boot_mode = readl((void *)CONFIG_ROCKCHIP_BOOT_MODE_REG);
+	if (reg_boot_mode == BOOT_LOADER) {
+		printf("boot mode: loader\n");
+		boot_mode = BOOT_MODE_LOADER;
+	} else if (reg_boot_mode == BOOT_FASTBOOT) {
+		printf("boot mode: bootloader\n");
+		boot_mode = BOOT_MODE_BOOTLOADER;
+	} else if (bmsg && !strcmp(bmsg->command, "boot-recovery")) {
 		printf("boot mode: recovery\n");
+		boot_mode = BOOT_MODE_RECOVERY;
 	} else {
-		/* Mode from boot mode register */
-		reg_boot_mode = readl((void *)CONFIG_ROCKCHIP_BOOT_MODE_REG);
-
 		switch (reg_boot_mode) {
 		case BOOT_NORMAL:
 			printf("boot mode: normal\n");
 			boot_mode = BOOT_MODE_NORMAL;
-			break;
-		case BOOT_FASTBOOT:
-			printf("boot mode: bootloader\n");
-			boot_mode = BOOT_MODE_BOOTLOADER;
-			break;
-		case BOOT_LOADER:
-			printf("boot mode: loader\n");
-			boot_mode = BOOT_MODE_LOADER;
 			break;
 		case BOOT_RECOVERY:
 			/* printf("boot mode: recovery\n"); */
@@ -466,7 +502,7 @@ int boot_rockchip_image(struct blk_desc *dev_desc, disk_partition_t *boot_part)
 {
 	ulong fdt_addr_r = env_get_ulong("fdt_addr_r", 16, 0);
 	ulong ramdisk_addr_r = env_get_ulong("ramdisk_addr_r", 16, 0);
-	ulong kernel_addr_r = env_get_ulong("kernel_addr_r", 16, 0x480000);
+	ulong kernel_addr_r = env_get_ulong("kernel_addr_r", 16, 0);
 	disk_partition_t kernel_part;
 	int ramdisk_size;
 	int kernel_size;
@@ -523,11 +559,10 @@ int boot_rockchip_image(struct blk_desc *dev_desc, disk_partition_t *boot_part)
 	printf("ramdisk  @ 0x%08lx (0x%08x)\n", ramdisk_addr_r, ramdisk_size);
 
 	fdt_ramdisk_skip_relocation();
+	hotkey_run(HK_SYSMEM);
 
-	if (gd->console_evt == CONSOLE_EVT_CTRL_M) {
-		bidram_dump();
-		sysmem_dump();
-	}
+	/* Check sysmem overflow */
+	sysmem_overflow_check();
 
 #if defined(CONFIG_ARM64)
 	char cmdbuf[64];
@@ -535,6 +570,29 @@ int boot_rockchip_image(struct blk_desc *dev_desc, disk_partition_t *boot_part)
 		kernel_addr_r, ramdisk_addr_r, ramdisk_size, fdt_addr_r);
 	run_command(cmdbuf, 0);
 #else
+	/* We asume it's always zImage on 32-bit platform */
+	ulong kaddr_c = env_get_ulong("kaddr_c", 16, 0);
+	ulong kaddr_r, kaddr, ksize;
+
+	if (kernel_addr_r && !kaddr_c) {
+		kaddr_c = kernel_addr_r;
+		kaddr_r = CONFIG_SYS_SDRAM_BASE;
+	}
+
+	if (!sysmem_free((phys_addr_t)kaddr_c)) {
+		kaddr = kaddr_r;
+		ksize = kernel_size * 100 / 45 ; /* Ratio: 45% */
+		ksize = ALIGN(ksize, dev_desc->blksz);
+		if (!sysmem_alloc_base(MEMBLK_ID_UNCOMP_KERNEL,
+				       (phys_addr_t)kaddr, ksize))
+			return -ENOMEM;
+	}
+
+	hotkey_run(HK_SYSMEM);
+
+	/* Check sysmem overflow */
+	sysmem_overflow_check();
+
 	boot_lmb_init(&images);
 	images.ep = kernel_addr_r;
 	images.initrd_start = ramdisk_addr_r;
