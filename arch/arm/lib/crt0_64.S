@@ -65,7 +65,7 @@
  */
 
 ENTRY(_main)
-#if defined(CONFIG_SPL_BUILD) && defined(DEBUG)
+#if defined(CONFIG_SPL_BUILD)
 	.equ SCTLR_A_BIT,		(1 << 1)
 	.equ SCTLR_SA_BIT,		(1 << 3)
 	.equ SCTLR_I_BIT,		(1 << 12)
@@ -106,7 +106,8 @@ ENTRY(_main)
 	mov	x0, #0
 	bl	board_init_f
 
-#if !defined(CONFIG_SPL_BUILD)
+#if (defined(CONFIG_SPL_BUILD) && !defined(CONFIG_TPL_BUILD) && !defined(CONFIG_SPL_SKIP_RELOCATE)) || \
+	!defined(CONFIG_SPL_BUILD)
 /*
  * Set up intermediate environment (new sp and gd) and call
  * relocate_code(addr_moni). Trick here is that we'll return

@@ -57,9 +57,17 @@ const static struct memblk_attr plat_mem_attr[MEMBLK_ID_MAX] = {
 		.name = "KERNEL",
 		.flags = M_ATTR_OFC,
 	},
+	[MEMBLK_ID_UNCOMP_KERNEL] = {
+		.name = "UNCOMPRESS-KERNEL",
+		.flags = M_ATTR_PEEK,
+	},
 	[MEMBLK_ID_ANDROID]  =	{
 		.name = "ANDROID",
 		.flags = M_ATTR_OFC,
+	},
+	[MEMBLK_ID_AVB_ANDROID]  =	{
+		.name = "AVB_ANDROID",
+		.flags = M_ATTR_OFC | M_ATTR_CACHELINE_ALIGN,
 	},
 };
 

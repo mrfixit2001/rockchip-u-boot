@@ -21,10 +21,12 @@ bool gDebug =
 options gOpts;
 char gLegacyPath[MAX_LINE_LEN] = { 0 };
 char gNewPath[MAX_LINE_LEN] = { 0 };
+static char *gPrePath;
 char gSubfix[MAX_LINE_LEN] = OUT_SUBFIX;
 char gEat[MAX_LINE_LEN];
 char *gConfigPath;
 uint8_t *gBuf;
+bool enableRC4 = false;
 
 static uint32_t g_merge_max_size = MAX_MERGE_SIZE;
 
@@ -148,6 +150,11 @@ static inline void fixPath(char *path)
 			strcpy(path, gNewPath);
 			strcat(path, tmp);
 		}
+	} else if ((ulong)path != (ulong)gOpts.outPath && /* ignore output */
+		    gPrePath && strncmp(path, gPrePath, strlen(gPrePath))) {
+		strcpy(tmp, path);
+		strcpy(path, gPrePath);
+		strcat(path, tmp);
 	}
 }
 
@@ -313,6 +320,7 @@ static bool parseOut(FILE *file)
 	}
 	if (fscanf(file, OPT_OUT_PATH "=%[^\r^\n]", gOpts.outPath) != 1)
 		return false;
+	/* fixPath(gOpts.outPath); */
 	printf("out:%s\n", gOpts.outPath);
 	return true;
 }
@@ -763,9 +771,8 @@ static inline void getBoothdr(rk_boot_header *hdr)
 	hdr->loaderNum = gOpts.loaderNum;
 	hdr->loaderOffset = hdr->code472Offset + gOpts.code472Num * hdr->code472Size;
 	hdr->loaderSize = sizeof(rk_boot_entry);
-#ifndef USE_P_RC4
-	hdr->rc4Flag = 1;
-#endif
+	if (!enableRC4)
+		hdr->rc4Flag = 1;
 }
 
 static inline uint32_t getCrc(const char *path)
@@ -976,6 +983,7 @@ static void printHelp(void)
 	printf("\t" OPT_VERSION "\t\tDisplay version information.\n");
 	printf("\t" OPT_SUBFIX "\t\tSpec subfix.\n");
 	printf("\t" OPT_REPLACE "\t\tReplace some part of binary path.\n");
+	printf("\t" OPT_PREPATH "\t\tAdd prefix path of binary path.\n");
 	printf("\t" OPT_SIZE
 	       "\t\tImage size.\"--size [image KB size]\", must be 512KB aligned\n");
 	printf("Usage2: boot_merger [options] [parameter]\n");
@@ -1013,6 +1021,9 @@ int main(int argc, char **argv)
 			merge = true;
 		} else if (!strcmp(OPT_UNPACK, argv[i])) {
 			merge = false;
+		} else if (!strcmp(OPT_RC4, argv[i])) {
+			printf("enable RC4 for IDB data(both ddr and preloader)\n");
+			enableRC4 = true;
 		} else if (!strcmp(OPT_SUBFIX, argv[i])) {
 			i++;
 			snprintf(gSubfix, sizeof(gSubfix), "%s", argv[i]);
@@ -1021,6 +1032,9 @@ int main(int argc, char **argv)
 			snprintf(gLegacyPath, sizeof(gLegacyPath), "%s", argv[i]);
 			i++;
 			snprintf(gNewPath, sizeof(gNewPath), "%s", argv[i]);
+		} else if (!strcmp(OPT_PREPATH, argv[i])) {
+			i++;
+			gPrePath = argv[i];
 		} else if (!strcmp(OPT_SIZE, argv[i])) {
 			g_merge_max_size = strtoul(argv[++i], NULL, 10);
 			if (g_merge_max_size % 512) {
