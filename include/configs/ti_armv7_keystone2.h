@@ -169,7 +169,6 @@
 #define CONFIG_ENV_EEPROM_IS_ON_I2C
 
 /* NAND Configuration */
-#define CONFIG_NAND_DAVINCI
 #define CONFIG_KEYSTONE_RBL_NAND
 #define CONFIG_KEYSTONE_NAND_MAX_RBL_SIZE	CONFIG_ENV_OFFSET
 #define CONFIG_SYS_NAND_MASK_CLE		0x4000
@@ -183,11 +182,6 @@
 #define CONFIG_SYS_MAX_NAND_DEVICE		1
 #define CONFIG_SYS_NAND_MAX_CHIPS		1
 #define CONFIG_SYS_NAND_NO_SUBPAGE_WRITE
-#define CONFIG_MTD_PARTITIONS
-#define MTDIDS_DEFAULT			"nand0=davinci_nand.0"
-#define MTDPARTS_DEFAULT		"mtdparts=davinci_nand.0:" \
-					"1024k(bootloader)ro,512k(params)ro," \
-					"-(ubifs)"
 
 /* USB Configuration */
 #define CONFIG_USB_XHCI_KEYSTONE
