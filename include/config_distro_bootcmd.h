@@ -332,7 +332,14 @@
 			"${scriptaddr} ${prefix}extlinux/extlinux.conf\0" \
 	\
 	"scan_dev_for_extlinux="                                          \
-		"if test -e ${devtype} "                                  \
+		"if test -e ${devtype} "  \
+				"${devnum}:${distro_bootpart} "           \
+				"${prefix}extlinux/newlinux.conf; then "  \
+			"echo Found ${prefix}extlinux/newlinux.conf; "    \
+			"sysboot ${devtype} ${devnum}:${distro_bootpart} any "    \
+				"${scriptaddr} ${prefix}extlinux/newlinux.conf; " \
+			"echo SCRIPT FAILED: continuing...; "             \
+		"elif test -e ${devtype} "                                \
 				"${devnum}:${distro_bootpart} "           \
 				"${prefix}extlinux/extlinux.conf; then "  \
 			"echo Found ${prefix}extlinux/extlinux.conf; "    \
