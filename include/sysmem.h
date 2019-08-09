@@ -19,7 +19,9 @@
 struct sysmem {
 	struct lmb lmb;
 	struct list_head allocated_head;
+	struct list_head kmem_resv_head;
 	ulong allocated_cnt;
+	ulong kmem_resv_cnt;
 	bool has_initf;
 	bool has_initr;
 };
@@ -55,6 +57,16 @@ int sysmem_initr(void);
  * @return NULL on error, otherwise the allocated region address ptr
  */
 void *sysmem_alloc(enum memblk_id id, phys_size_t size);
+
+/**
+ * sysmem_alloc_by_name() - Alloc sysmem region by name at the expect addr
+ *
+ * @name: memblk name
+ * @size: region size
+ *
+ * @return NULL on error, otherwise the allocated region address ptr
+ */
+void *sysmem_alloc_by_name(const char *name, phys_size_t size);
 
 /**
  * sysmem_alloc_base() - Alloc sysmem region at the expect addr

@@ -393,7 +393,7 @@ int android_bootloader_boot_kernel(unsigned long kernel_address)
 		"bootm", kernel_addr_str, kernel_addr_str, fdt_addr, NULL };
 
 	comp_type = env_get_ulong("os_comp", 10, 0);
-	sprintf(kernel_addr_str, "0x%lx", kernel_address);
+	sprintf(kernel_addr_str, "0x%08lx", kernel_address);
 
 	if (comp_type != IH_COMP_NONE) {
 		if (comp_type == IH_COMP_ZIMAGE &&
@@ -1043,12 +1043,14 @@ int android_bootloader_boot_flow(struct blk_desc *dev_desc,
 	}
 
 	if (slot_suffix[0] != '_') {
+#ifndef CONFIG_ANDROID_AVB
 		printf("###There is no bootable slot, bring up lastboot!###\n");
 		if (rk_get_lastboot() == 1)
 			memcpy(slot_suffix, "_b", 2);
 		else if(rk_get_lastboot() == 0)
 			memcpy(slot_suffix, "_a", 2);
 		else
+#endif
 			return -1;
 	}
 #endif
@@ -1094,6 +1096,16 @@ int android_bootloader_boot_flow(struct blk_desc *dev_desc,
 		if (android_slot_verify(boot_partname, &load_address,
 					slot_suffix)) {
 			printf("AVB verify failed\n");
+#ifdef CONFIG_ANDROID_AB
+			printf("Reset in AB system.\n");
+			flushc();
+			/*
+			 * Since we use the retry-count in ab system, then can
+			 * try reboot if verify fail until the retry-count is
+			 * equal to zero.
+			 */
+			reset_cpu(0);
+#endif
 			return -1;
 		}
 	} else {
@@ -1115,6 +1127,16 @@ int android_bootloader_boot_flow(struct blk_desc *dev_desc,
 			if (android_slot_verify(boot_partname, &load_address,
 						slot_suffix)) {
 				printf("AVB verify failed\n");
+#ifdef CONFIG_ANDROID_AB
+				printf("Reset in AB system.\n");
+				flushc();
+				/*
+				 * Since we use the retry-count in ab system,
+				 * then can try reboot if verify fail until
+				 * the retry-count is equal to zero.
+				 */
+				reset_cpu(0);
+#endif
 				return -1;
 			}
 		}

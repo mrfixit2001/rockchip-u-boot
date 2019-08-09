@@ -33,6 +33,7 @@
 #endif
 
 /* tag_bootdev.devtype */
+#define BOOT_TYPE_UNKNOWN	0
 #define BOOT_TYPE_NAND		(1 << 0)
 #define BOOT_TYPE_EMMC		(1 << 1)
 #define BOOT_TYPE_SD0		(1 << 2)
@@ -207,6 +208,44 @@ struct tag *atags_get_tag(u32 magic);
  * return: 0 is not available, otherwise available.
  */
 int atags_is_available(void);
+
+#ifdef CONFIG_SPL_BUILD
+/*
+ * get_bootdev_by_brom_bootsource
+ *
+ * @magic: void
+ *
+ * return: boootdev, else 0 fail.
+ */
+int get_bootdev_by_brom_bootsource(void);
+
+/*
+ * atags_set_bootdev_by_brom_bootsource
+ *
+ * @magic: void
+ *
+ * return: 0 success, others fail.
+ */
+int atags_set_bootdev_by_brom_bootsource(void);
+
+/*
+ * get_bootdev_by_spl_bootdevice
+ *
+ * @bootdevice
+ *
+ * return: boootdev, else -ENODEV fail.
+ */
+int get_bootdev_by_spl_bootdevice(int bootdevice);
+
+/*
+ * atags_set_bootdev_by_spl_bootdevice
+ *
+ * @bootdevice
+ *
+ * return: 0 success, others fail.
+ */
+int atags_set_bootdev_by_spl_bootdevice(int bootdevice);
+#endif
 
 /* Print only one tag */
 void atags_print_tag(struct tag *t);

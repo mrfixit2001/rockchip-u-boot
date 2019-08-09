@@ -13,6 +13,7 @@
 #define CONFIG_SYS_CBSIZE		1024
 #define CONFIG_SKIP_LOWLEVEL_INIT
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
+#define CONFIG_SYS_NAND_ONFI_DETECTION
 #define CONFIG_SYS_NAND_PAGE_SIZE	2048
 #define CONFIG_SYS_NAND_PAGE_COUNT	64
 #define CONFIG_SYS_NAND_SIZE		(256 * 1024 * 1024)
@@ -71,7 +72,7 @@
 	"fdt_addr_r=0x02f00000\0" \
 	"kernel_addr_r=0x00058000\0" \
 	"kernel_addr_c=0x2008000\0" \
-	"ramdisk_addr_r=0x03080000\0"
+	"ramdisk_addr_r=0x02880000\0"
 #endif
 
 #include <config_distro_bootcmd.h>

@@ -405,8 +405,8 @@ static int initr_flash(void)
 #if defined(CONFIG_PPC) && !defined(CONFIG_DM_SPI)
 static int initr_spi(void)
 {
-	/* PPC does this here */
-#ifdef CONFIG_SPI
+	/* MPC8xx does this here */
+#ifdef CONFIG_MPC8XX_SPI
 #if !defined(CONFIG_ENV_IS_IN_EEPROM)
 	spi_init_f();
 #endif
@@ -807,6 +807,9 @@ static init_fnc_t init_sequence_r[] = {
 #ifdef CONFIG_USING_KERNEL_DTB
 	initr_env_nowhere,
 #endif
+#if defined(CONFIG_BOARD_EARLY_INIT_R)
+	board_early_init_r,
+#endif
 
 #if defined(CONFIG_ARM) || defined(CONFIG_NDS32)
 	board_init,	/* Setup chipselects */
@@ -844,9 +847,6 @@ static init_fnc_t init_sequence_r[] = {
 #endif
 #ifdef CONFIG_ADDR_MAP
 	initr_addr_map,
-#endif
-#if defined(CONFIG_BOARD_EARLY_INIT_R)
-	board_early_init_r,
 #endif
 	INIT_FUNC_WATCHDOG_RESET
 #ifdef CONFIG_POST
