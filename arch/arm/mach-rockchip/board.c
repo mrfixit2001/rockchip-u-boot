@@ -78,6 +78,8 @@ __weak int rk_board_init(void)
 
 static int rockchip_set_serialno(void)
 {
+	u8 low[CPUID_LEN / 2], high[CPUID_LEN / 2];
+	u8 cpuid[CPUID_LEN] = {0};
 #ifdef CONFIG_ROCKCHIP_VENDOR_PARTITION
 	char serialno_str[VENDOR_SN_MAX];
 #else
@@ -101,7 +103,8 @@ static int rockchip_set_serialno(void)
 
 		/* retrieve the device */
 		ret = uclass_get_device_by_driver(UCLASS_MISC,
-						  DM_GET_DRIVER(rockchip_efuse), &dev);
+						  DM_GET_DRIVER(rockchip_efuse),
+						  &dev);
 		if (ret) {
 			debug("%s: could not find efuse device\n", __func__);
 			return ret;
