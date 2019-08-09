@@ -274,20 +274,6 @@ struct blk_desc *rockchip_get_bootdev(void)
 		return NULL;
 	}
 
-#ifdef CONFIG_MMC
-	if (dev_type == IF_TYPE_MMC) {
-		struct mmc *mmc;
-		const char *timing[] = {
-			"Legacy", "High Speed", "High Speed", "SDR12",
-			"SDR25", "SDR50", "SDR104", "DDR50",
-			"DDR52", "HS200", "HS400", "HS400 Enhanced Strobe"};
-
-		mmc = find_mmc_device(devnum);
-		printf("MMC%d: %s, %dMhz\n", devnum,
-		       timing[mmc->timing], mmc->clock / 1000000);
-	}
-#endif
-
 	printf("PartType: %s\n", part_get_type(dev_desc));
 
 	return dev_desc;
