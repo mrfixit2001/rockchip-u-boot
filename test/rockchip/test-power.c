@@ -5,7 +5,6 @@
  */
 
 #include <common.h>
-#include <boot_rkimg.h>
 #include <console.h>
 #include <dm.h>
 #include <thermal.h>
@@ -202,7 +201,9 @@ static cmd_tbl_t sub_cmd[] = {
 #ifdef CONFIG_CMD_PMIC
 	UNIT_CMD_DEFINE(pmic, 0),
 #endif
+#ifdef CONFIG_DM_RESET
 	UNIT_CMD_ATTR_DEFINE(reset, 0, CMD_FLG_NORETURN),
+#endif
 #ifdef CONFIG_DM_REGULATOR
 	UNIT_CMD_ATTR_DEFINE(regulator, 0, CMD_FLG_INTERACTIVE),
 #endif
@@ -224,7 +225,9 @@ static char sub_cmd_help[] =
 #ifdef CONFIG_CMD_PMIC
 "    [.] rktest pmic                        - test pmic, dump registers\n"
 #endif
+#ifdef CONFIG_DM_RESET
 "    [n] rktest reset                       - test sysreset\n"
+#endif
 #ifdef CONFIG_DM_REGULATOR
 "    [i] rktest regulator                   - test regulator set and show\n"
 #endif
