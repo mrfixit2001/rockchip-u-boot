@@ -27,9 +27,10 @@
  */
 
 #define BOOTENV_SHARED_BLKDEV_BODY(devtypel) \
-		"if " #devtypel " dev ${devnum}; then " \
-			"setenv devtype " #devtypel "; " \
-			"run scan_dev_for_boot_part; " \
+		"echo Checking for " #devtypel " dev ${devnum}...;"    \
+		"if " #devtypel " dev ${devnum}; then "               \
+			"setenv devtype " #devtypel "; "              \
+			"run scan_dev_for_boot_part; "                \
 		"fi\0"
 
 #define BOOTENV_SHARED_BLKDEV(devtypel) \
@@ -366,7 +367,8 @@
 	\
 	"scan_dev_for_boot="                                              \
 		"echo Scanning ${devtype} "                               \
-				"${devnum}:${distro_bootpart}...; "       \
+				"${devnum}:${distro_bootpart} for "       \
+				"extlinux or boot scripts...; "           \
 		"for prefix in ${boot_prefixes}; do "                     \
 			"run scan_dev_for_extlinux; "                     \
 			"run scan_dev_for_scripts; "                      \
@@ -375,6 +377,8 @@
 		"\0"                                                      \
 	\
 	"scan_dev_for_boot_part="                                         \
+		"echo Scanning ${devtype} ${devnum} for "                 \
+				"bootable partitions...;"                 \
 		"part list ${devtype} ${devnum} -bootable devplist; "     \
 		"env exists devplist || setenv devplist 1; "              \
 		"for distro_bootpart in ${devplist}; do "                 \

@@ -111,10 +111,10 @@
 
 #define RKIMG_DET_BOOTDEV \
 	"rkimg_bootdev=" \
-	"if mmc dev 1 && rkimgtest mmc 1; then " \
+	"if mmc dev 1; then " \
 		"setenv devtype mmc; setenv devnum 1; echo Boot from SDcard;" \
 	"elif mmc dev 0; then " \
-		"setenv devtype mmc; setenv devnum 0;" \
+		"setenv devtype mmc; setenv devnum 0; echo Boot from eMMC" \
 	"elif mtd_blk dev 0; then " \
 		"setenv devtype mtd; setenv devnum 0;" \
 	"elif mtd_blk dev 1; then " \
@@ -127,10 +127,17 @@
 		"setenv devtype spinor; setenv devnum 1;" \
 	"fi; \0"
 
+#ifdef CONFIG_CMD_BOOT_ANDROID
+#define BOOT_ANDROID_COMMAND \
+	"boot_android ${devtype} ${devnum};"
+#else
+#define BOOT_ANDROID_COMMAND
+#endif
+
 #ifdef CONFIG_AVB_VBMETA_PUBLIC_KEY_VALIDATE
 #ifndef CONFIG_ANDROID_AB
 #define RKIMG_BOOTCOMMAND \
-	"boot_android ${devtype} ${devnum};" \
+	BOOT_ANDROID_COMMAND \
 	"echo AVB boot failed and enter rockusb or fastboot!;" \
 	"rockusb 0 ${devtype} ${devnum};" \
 	"fastboot usb 0;"
@@ -141,13 +148,13 @@
  * Remove rockusb since it unable to active slot.
  */
 #define RKIMG_BOOTCOMMAND \
-	"boot_android ${devtype} ${devnum};" \
+	BOOT_ANDROID_COMMAND \
 	"echo AVB boot failed and enter fastboot!;" \
 	"fastboot usb 0;"
 #endif /* CONFIG_ANDROID_AB */
 #else /* CONFIG_AVB_VBMETA_PUBLIC_KEY_VALIDATE */
 #define RKIMG_BOOTCOMMAND \
-	"boot_android ${devtype} ${devnum};" \
+	BOOT_ANDROID_COMMAND \
 	"bootrkp;" \
 	"run distro_bootcmd;"
 #endif
