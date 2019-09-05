@@ -16,11 +16,11 @@
 	model = "Rockchip RK3399 Evaluation Board";
 	compatible = "rockchip,rk3399-evb", "rockchip,rk3399",
 		     "google,rk3399evb-rev2";
-
+/*
 	forced-gpios {
 		sdmmc-pwr-gpio = <&gpio0 RK_PA1 GPIO_ACTIVE_HIGH>;
 	};
-
+*/
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -48,6 +48,22 @@
 		};
 	};
 
+/*
+MRFIXIT: This is wip - should work but causes "Error binding driver 'gpio_led': -22" and no-boot.
+
+	leds {
+		u-boot,dm-pre-reloc;
+		compatible = "gpio-leds";
+		status = "okay";
+
+		green-led {
+			gpios = <&gpio0 RK_PB3 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "default-on";
+			default-state = "on";
+			mode = <0x23>;
+		};
+	};
+*/
 	xin32k: xin32k {
 		compatible = "fixed-clock";
 		clock-frequency = <32768>;
@@ -452,12 +468,24 @@
 &dwc3_typec0 {
 	status = "okay";
 	maximum-speed = "high-speed";
+	phy-reg = <0x0 0xff7c0000 0x0 0x40000>;
 };
 
 &dwc3_typec1 {
 	vbus-supply = <&vcc5v0_host>;
 	status = "okay";
 	maximum-speed = "high-speed";
+	phy-reg = <0x0 0xff800000 0x0 0x40000>;
+};
+
+&typec_phy0 {
+	status = "okay";
+	reg = <0x0 0xff7c0000 0x0 0x40000>;
+};
+
+&typec_phy1 {
+	status = "okay";
+	reg = <0x0 0xff800000 0x0 0x40000>;
 };
 
 &i2c0 {

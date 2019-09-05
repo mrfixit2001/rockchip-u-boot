@@ -37,13 +37,15 @@
 	BOOT_TARGET_DEVICES_references_RKNAND_without_CONFIG_CMD_RKNAND
 #endif
 
-/* First try to boot from SD (index 1), then eMMC (index 0) */
+/* Split boot targets for SD (index 1) and eMMC (index 0) to eventually priority USB over eMMC (not yet) */
 #if CONFIG_IS_ENABLED(CMD_MMC)
-	#define BOOT_TARGET_MMC(func) \
-		func(MMC, mmc, 1) \
+	#define BOOT_TARGET_MMC1(func) \
+		func(MMC, mmc, 1)
+	#define BOOT_TARGET_MMC0(func) \
 		func(MMC, mmc, 0)
 #else
-	#define BOOT_TARGET_MMC(func)
+	#define BOOT_TARGET_MMC1(func)
+	#define BOOT_TARGET_MMC0(func)
 #endif
 
 #if CONFIG_IS_ENABLED(CMD_RKNAND)
@@ -71,7 +73,8 @@
 #endif
 
 #define BOOT_TARGET_DEVICES(func) \
-	BOOT_TARGET_MMC(func) \
+	BOOT_TARGET_MMC1(func) \
+	BOOT_TARGET_MMC0(func) \
 	BOOT_TARGET_RKNAND(func) \
 	BOOT_TARGET_USB(func) \
 	BOOT_TARGET_PXE(func) \

@@ -90,11 +90,11 @@ fdt_addr_t fdtdec_get_addr_size_fixed(const void *blob, int node,
 	int len;
 	fdt_addr_t addr;
 
-	debug("%s: %s: ", __func__, prop_name);
+	printf("%s: %s: ", __func__, prop_name);
 
 	prop = fdt_getprop(blob, node, prop_name, &len);
 	if (!prop) {
-		debug("(not found)\n");
+		printf("(not found)\n");
 		return FDT_ADDR_T_NONE;
 	}
 	prop_end = prop + (len / sizeof(*prop));
@@ -103,7 +103,7 @@ fdt_addr_t fdtdec_get_addr_size_fixed(const void *blob, int node,
 	prop_size = prop_addr + na;
 	prop_after_size = prop_size + ns;
 	if (prop_after_size > prop_end) {
-		debug("(not enough data: expected >= %d cells, got %d cells)\n",
+		printf("(not enough data: expected >= %d cells, got %d cells)\n",
 		      (u32)(prop_after_size - prop), ((u32)(prop_end - prop)));
 		return FDT_ADDR_T_NONE;
 	}
@@ -117,10 +117,10 @@ fdt_addr_t fdtdec_get_addr_size_fixed(const void *blob, int node,
 
 	if (sizep) {
 		*sizep = fdtdec_get_number(prop_size, ns);
-		debug("addr=%08llx, size=%llx\n", (unsigned long long)addr,
+		printf("addr=%08llx, size=%llx\n", (unsigned long long)addr,
 		      (unsigned long long)*sizep);
 	} else {
-		debug("addr=%08llx\n", (unsigned long long)addr);
+		printf("addr=%08llx\n", (unsigned long long)addr);
 	}
 
 	return addr;

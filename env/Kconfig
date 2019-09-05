@@ -481,7 +481,7 @@ config ENV_OFFSET
 
 config ENV_SIZE
 	hex
-	default 0x10000
+	default 0x8000
 	help
 	  Size of the environment storage area
 

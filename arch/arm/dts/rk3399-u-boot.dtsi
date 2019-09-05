@@ -73,8 +73,18 @@
 	u-boot,dm-pre-reloc;
 };
 
+&typec_phy0 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
 &dwc3_typec1 {
 	u-boot,dm-pre-reloc;
+};
+
+&typec_phy1 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
 };
 
 &emmc_phy {
@@ -89,6 +99,22 @@
 &u2phy0_otg {
 	u-boot,dm-pre-reloc;
 	status = "okay";
+};
+
+&usb_host0_ehci {
+	u-boot,dm-pre-reloc;
+};
+
+&usb_host0_ohci {
+	u-boot,dm-pre-reloc;
+};
+
+&usb_host1_ehci {
+	u-boot,dm-pre-reloc;
+};
+
+&usb_host1_ohci {
+	u-boot,dm-pre-reloc;
 };
 
 &vopl {

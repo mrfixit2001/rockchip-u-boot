@@ -4,6 +4,7 @@
  * SPDX-License-Identifier:	GPL-2.0+ BSD-2-Clause
  */
 #include <linux/libfdt_env.h>
+#include <stdio.h>
 
 #ifndef USE_HOSTCC
 #include <fdt.h>
@@ -268,6 +269,21 @@ const struct fdt_property *fdt_get_property_by_offset(const void *fdt,
 	return prop;
 }
 
+/*
+ * Alignment helpers:
+ *     These helpers access words from a device tree blob.  They're
+ *     built to work even with unaligned pointers on platforms (ike
+ *     ARM) that don't like unaligned loads and stores
+ */
+
+static inline uint32_t fdt32_ld(const fdt32_t *p)
+{
+	fdt32_t v;
+
+	memcpy(&v, p, sizeof(v));
+	return fdt32_to_cpu(v);
+}
+
 const struct fdt_property *fdt_get_property_namelen(const void *fdt,
 						    int offset,
 						    const char *name,
@@ -282,10 +298,12 @@ const struct fdt_property *fdt_get_property_namelen(const void *fdt,
 			offset = -FDT_ERR_INTERNAL;
 			break;
 		}
-		if (_fdt_string_eq(fdt, fdt32_to_cpu(prop->nameoff),
-				   name, namelen))
+		if (_fdt_string_eq(fdt, fdt32_ld(&prop->nameoff), name, namelen)) {
 			return prop;
+		}
 	}
+
+	//printf("Loop finished\n");
 
 	if (lenp)
 		*lenp = offset;

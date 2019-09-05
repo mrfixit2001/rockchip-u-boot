@@ -59,6 +59,17 @@ void *devfdt_map_physmem(struct udevice *dev, unsigned long size);
 fdt_addr_t devfdt_get_addr_index(struct udevice *dev, int index);
 
 /**
+ * devfdt_get_phyaddr_index() - Get the indexed phy-reg property of a device
+ *
+ * @dev: Pointer to a device
+ * @index: the 'phy-reg' property can hold a list of <addr, size> pairs
+ *	   and @index is used to select which one is required
+ *
+ * @return addr
+ */
+fdt_addr_t devfdt_get_phyaddr_index(struct udevice *dev, int index);
+
+/**
  * devfdt_get_addr_size_index() - Get the indexed reg property of a device
  *
  * Returns the address and size specified in the 'reg' property of a device.

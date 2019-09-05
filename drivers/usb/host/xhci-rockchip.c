@@ -40,6 +40,9 @@ static int xhci_usb_ofdata_to_platdata(struct udevice *dev)
 	struct rockchip_xhci_platdata *plat = dev_get_platdata(dev);
 	struct udevice *child;
 	int ret = 0;
+	const void *blob = gd->fdt_blob;
+
+	printf("device name %s\n", dev->name);
 
 	/*
 	 * Get the base address for XHCI controller from the device node
@@ -55,8 +58,16 @@ static int xhci_usb_ofdata_to_platdata(struct udevice *dev)
 	     device_find_next_child(&child)) {
 		if (!device_is_compatible(child, "rockchip,rk3399-usb3-phy"))
 			continue;
-		plat->phy_base = devfdt_get_addr(child);
+		//plat->phy_base = devfdt_get_addr(child);
+		printf("found child device named %s\n", child->name);
+		plat->phy_base = fdtdec_get_addr(blob, dev_of_offset(child), "reg");
 		break;
+	}
+	if (plat->phy_base == FDT_ADDR_T_NONE) {
+		plat->phy_base = fdtdec_get_addr(blob, dev_of_offset(dev), "phy-reg");
+	}
+	if (plat->phy_base == FDT_ADDR_T_NONE) {
+		plat->phy_base = devfdt_get_phyaddr_index(dev, 0);
 	}
 
 	if (plat->phy_base == FDT_ADDR_T_NONE) {

@@ -20,6 +20,8 @@ DECLARE_GLOBAL_DATA_PTR;
 
 static void rk3399_force_sdmmc_power_on(void)
 {
+/*
+	// Disabled but left in place in case we need to use it in the future
 	ofnode node;
 	struct gpio_desc sdmmc_pwr_gpio;
 
@@ -38,6 +40,7 @@ static void rk3399_force_sdmmc_power_on(void)
 	}
 
 	dm_gpio_set_value(&sdmmc_pwr_gpio, 1);
+*/
 }
 
 int rk_board_init(void)

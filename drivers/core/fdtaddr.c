@@ -17,6 +17,79 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+fdt_addr_t devfdt_get_phyaddr_index(struct udevice *dev, int index)
+{
+#if CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA)
+	fdt_addr_t addr;
+
+	if (CONFIG_IS_ENABLED(OF_TRANSLATE)) {
+		const fdt32_t *reg;
+		int len = 0;
+		int na, ns;
+
+		na = fdt_address_cells(gd->fdt_blob,
+				       dev_of_offset(dev->parent));
+		if (na < 1) {
+			printf("%s: bad #address-cells\n", __func__);
+			return FDT_ADDR_T_NONE;
+		}
+
+		ns = fdt_size_cells(gd->fdt_blob, dev_of_offset(dev->parent));
+		if (ns < 0) {
+			printf("%s: bad #size-cells\n", __func__);
+			return FDT_ADDR_T_NONE;
+		}
+
+		reg = fdt_getprop(gd->fdt_blob, dev_of_offset(dev), "phy-reg", &len);
+		//printf("%s: results... offset %d... len %d... index %d... ftd32 %ld... na %d... ns %d\n", __func__,
+		//	dev_of_offset(dev), len , index, sizeof(fdt32_t), na, ns);
+		if (!reg) {
+			printf("%s: cannot find reg value\n", __func__);
+			return FDT_ADDR_T_NONE;
+		}
+		if (len <= (index * sizeof(fdt32_t) * (na + ns))) {
+			printf("%s: Req index out of range\n", __func__);
+			return FDT_ADDR_T_NONE;
+		}
+
+		reg += index * (na + ns);
+
+		/*
+		 * Use the full-fledged translate function for complex
+		 * bus setups.
+		 */
+		addr = fdt_translate_address((void *)gd->fdt_blob,
+					     dev_of_offset(dev), reg);
+	} else {
+		/*
+		 * Use the "simple" translate function for less complex
+		 * bus setups.
+		 */
+		addr = fdtdec_get_addr_size_auto_parent(gd->fdt_blob,
+				dev_of_offset(dev->parent), dev_of_offset(dev),
+				"reg", index, NULL, false);
+		if (CONFIG_IS_ENABLED(SIMPLE_BUS) && addr != FDT_ADDR_T_NONE) {
+			if (device_get_uclass_id(dev->parent) ==
+			    UCLASS_SIMPLE_BUS)
+				addr = simple_bus_translate(dev->parent, addr);
+		}
+	}
+
+	/*
+	 * Some platforms need a special address translation. Those
+	 * platforms (e.g. mvebu in SPL) can configure a translation
+	 * offset in the DM by calling dm_set_translation_offset() that
+	 * will get added to all addresses returned by devfdt_get_addr().
+	 */
+	addr += dm_get_translation_offset();
+
+	return addr;
+#else
+	return FDT_ADDR_T_NONE;
+#endif
+}
+
+
 fdt_addr_t devfdt_get_addr_index(struct udevice *dev, int index)
 {
 #if CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA)
@@ -30,20 +103,25 @@ fdt_addr_t devfdt_get_addr_index(struct udevice *dev, int index)
 		na = fdt_address_cells(gd->fdt_blob,
 				       dev_of_offset(dev->parent));
 		if (na < 1) {
-			debug("bad #address-cells\n");
+			printf("%s: bad #address-cells\n", __func__);
 			return FDT_ADDR_T_NONE;
 		}
 
 		ns = fdt_size_cells(gd->fdt_blob, dev_of_offset(dev->parent));
 		if (ns < 0) {
-			debug("bad #size-cells\n");
+			printf("%s: bad #size-cells\n", __func__);
 			return FDT_ADDR_T_NONE;
 		}
 
-		reg = fdt_getprop(gd->fdt_blob, dev_of_offset(dev), "reg",
-				  &len);
-		if (!reg || (len <= (index * sizeof(fdt32_t) * (na + ns)))) {
-			debug("Req index out of range\n");
+		reg = fdt_getprop(gd->fdt_blob, dev_of_offset(dev), "reg", &len);
+		//printf("%s: results... offset %d... len %d... index %d... ftd32 %ld... na %d... ns %d\n", __func__,
+		//	dev_of_offset(dev), len , index, sizeof(fdt32_t), na, ns);
+		if (!reg) {
+			printf("%s: cannot find reg value\n", __func__);
+			return FDT_ADDR_T_NONE;
+		}
+		if (len <= (index * sizeof(fdt32_t) * (na + ns))) {
+			printf("%s: Req index out of range\n", __func__);
 			return FDT_ADDR_T_NONE;
 		}
 
