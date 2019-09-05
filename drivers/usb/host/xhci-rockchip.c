@@ -64,7 +64,7 @@ static int xhci_usb_ofdata_to_platdata(struct udevice *dev)
 		break;
 	}
 	if (plat->phy_base == FDT_ADDR_T_NONE) {
-		plat->phy_base = fdtdec_get_addr(blob, dev_of_offset(dev), "phy-reg");
+		plat->phy_base = fdtdec_get_addr(blob, dev_of_offset(dev), "phyreg");
 	}
 	if (plat->phy_base == FDT_ADDR_T_NONE) {
 		plat->phy_base = devfdt_get_phyaddr_index(dev, 0);

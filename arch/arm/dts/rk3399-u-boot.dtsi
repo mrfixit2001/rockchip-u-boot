@@ -68,7 +68,7 @@
 &dmc {
 	u-boot,dm-pre-reloc;
 };
-
+/*
 &dwc3_typec0 {
 	u-boot,dm-pre-reloc;
 };
@@ -86,7 +86,7 @@
 	u-boot,dm-pre-reloc;
 	status = "okay";
 };
-
+*/
 &emmc_phy {
 	u-boot,dm-pre-reloc;
 };
@@ -100,7 +100,7 @@
 	u-boot,dm-pre-reloc;
 	status = "okay";
 };
-
+/*
 &usb_host0_ehci {
 	u-boot,dm-pre-reloc;
 };
@@ -116,7 +116,7 @@
 &usb_host1_ohci {
 	u-boot,dm-pre-reloc;
 };
-
+*/
 &vopl {
 	u-boot,dm-pre-reloc;
 };

@@ -1,9 +1,6 @@
 Common leds properties.
 
 Optional properties for child nodes:
-- label : The label for this LED.  If omitted, the label is
-  taken from the node name (excluding the unit address).
-
 - linux,default-trigger :  This parameter, if present, is a
     string defining the trigger assigned to the LED.  Current triggers are:
      "backlight" - LED will act as a back-light, controlled by the framebuffer

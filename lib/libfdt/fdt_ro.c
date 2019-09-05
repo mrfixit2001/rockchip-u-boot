@@ -303,8 +303,6 @@ const struct fdt_property *fdt_get_property_namelen(const void *fdt,
 		}
 	}
 
-	//printf("Loop finished\n");
-
 	if (lenp)
 		*lenp = offset;
 	return NULL;

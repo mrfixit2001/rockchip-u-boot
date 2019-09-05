@@ -48,22 +48,6 @@
 		};
 	};
 
-/*
-MRFIXIT: This is wip - should work but causes "Error binding driver 'gpio_led': -22" and no-boot.
-
-	leds {
-		u-boot,dm-pre-reloc;
-		compatible = "gpio-leds";
-		status = "okay";
-
-		green-led {
-			gpios = <&gpio0 RK_PB3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "default-on";
-			default-state = "on";
-			mode = <0x23>;
-		};
-	};
-*/
 	xin32k: xin32k {
 		compatible = "fixed-clock";
 		clock-frequency = <32768>;
@@ -106,6 +90,17 @@ MRFIXIT: This is wip - should work but causes "Error binding driver 'gpio_led': 
 	vcc_phy: vcc-phy-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_phy";
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	led_regulator: led-regulator {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "led_regulator";
+		gpio = <&gpio0 RK_PB3 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_pinctrl>;
 		regulator-always-on;
 		regulator-boot-on;
 	};
@@ -468,14 +463,14 @@ MRFIXIT: This is wip - should work but causes "Error binding driver 'gpio_led': 
 &dwc3_typec0 {
 	status = "okay";
 	maximum-speed = "high-speed";
-	phy-reg = <0x0 0xff7c0000 0x0 0x40000>;
+	phyreg = <0x0 0xff7c0000 0x0 0x40000>;
 };
 
 &dwc3_typec1 {
 	vbus-supply = <&vcc5v0_host>;
 	status = "okay";
 	maximum-speed = "high-speed";
-	phy-reg = <0x0 0xff800000 0x0 0x40000>;
+	phyreg = <0x0 0xff800000 0x0 0x40000>;
 };
 
 &typec_phy0 {
@@ -656,6 +651,12 @@ MRFIXIT: This is wip - should work but causes "Error binding driver 'gpio_led': 
 
 		host_usb3_drv: host-usb3-drv {
 			rockchip,pins = <1 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	led {
+		led_pinctrl: led-pinctrl {
+			rockchip,pins = <0 RK_PB3 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
