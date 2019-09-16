@@ -184,6 +184,9 @@ static enum android_boot_mode android_bootloader_load_and_clear_mode(
 	if (!strcmp("boot-recovery", bcb.command))
 		return ANDROID_BOOT_MODE_RECOVERY;
 
+	if (!strcmp("boot-fastboot", bcb.command))
+		return ANDROID_BOOT_MODE_RECOVERY;
+
 	return ANDROID_BOOT_MODE_NORMAL;
 }
 
@@ -1205,6 +1208,10 @@ int android_bootloader_boot_flow(struct blk_desc *dev_desc,
 	ret = android_image_get_fdt((void *)load_address, &fdt_addr);
 	if (!ret)
 		env_set_hex("fdt_addr", fdt_addr);
+#endif
+#ifdef CONFIG_OPTEE_CLIENT
+	if (trusty_notify_optee_uboot_end())
+		printf("Close optee client failed!\n");
 #endif
 	android_bootloader_boot_kernel(load_address);
 
