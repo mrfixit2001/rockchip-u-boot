@@ -786,6 +786,7 @@ static int label_boot(cmd_tbl_t *cmdtp, struct pxe_label *label)
 			} else {
 				bootm_argv[3] = NULL;
 			}
+			break;
 		}
 	}
 
