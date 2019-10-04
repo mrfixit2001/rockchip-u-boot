@@ -718,65 +718,74 @@ static int label_boot(cmd_tbl_t *cmdtp, struct pxe_label *label)
 
 	/* if fdt label is defined then get fdt from server */
 	if (bootm_argv[3]) {
-		char *fdtfile = NULL;
-		char *fdtfilefree = NULL;
+		for (int i=1; i<=2; i++) {
+			char *fdtfile = NULL;
+			char *fdtfilefree = NULL;
+			char *f0 = "", *f1 = "", *f2 = "", *f3 = "", *f4 = "", *slash = "";
 
-		if (label->fdt) {
-			fdtfile = label->fdt;
-		} else if (label->fdtdir) {
-			char *f1, *f2, *f3, *f4, *slash;
+			if (i == 2) {
+				f0 = "rockchip/";
+				printf("Searching rockchip folder...\n");
+			}
 
-			f1 = env_get("fdtfile");
-			if (f1) {
-				f2 = "";
-				f3 = "";
-				f4 = "";
+			if (label->fdt) {
+				fdtfile = label->fdt;
+			} else if (label->fdtdir) {
+				f1 = env_get("fdtfile");
+				if (f1) {
+					f2 = "";
+					f3 = "";
+					f4 = "";
+				} else {
+					/*
+					 * For complex cases where this code doesn't
+					 * generate the correct filename, the board
+					 * code should set $fdtfile during early boot,
+					 * or the boot scripts should set $fdtfile
+					 * before invoking "pxe" or "sysboot".
+					 */
+					f1 = env_get("soc");
+					f2 = "-";
+					f3 = env_get("board");
+					f4 = ".dtb";
+				}
+
+				len = strlen(label->fdtdir);
+				if (!len)
+					slash = "./";
+				else if (label->fdtdir[len - 1] != '/')
+					slash = "/";
+				else
+					slash = "";
+
+				len = strlen(label->fdtdir) + strlen(slash) +
+					strlen(f0) + strlen(f1) + strlen(f2) + strlen(f3) +
+					strlen(f4) + 1;
+				fdtfilefree = malloc(len);
+				if (!fdtfilefree) {
+					printf("malloc fail (FDT filename)\n");
+					return 1;
+				}
+
+				snprintf(fdtfilefree, len, "%s%s%s%s%s%s%s",
+					 label->fdtdir, slash, f0, f1, f2, f3, f4);
+				fdtfile = fdtfilefree;
+			}
+
+			if (fdtfile) {
+				int err = get_relfile_envaddr(cmdtp, fdtfile, "fdt_addr_r");
+				free(fdtfilefree);
+				if (err < 0 && label->fdtdir) {
+					continue;
+				}
+				if (err < 0) {
+					printf("Skipping %s for failure retrieving fdt\n",
+							label->name);
+					return 1;
+				}
 			} else {
-				/*
-				 * For complex cases where this code doesn't
-				 * generate the correct filename, the board
-				 * code should set $fdtfile during early boot,
-				 * or the boot scripts should set $fdtfile
-				 * before invoking "pxe" or "sysboot".
-				 */
-				f1 = env_get("soc");
-				f2 = "-";
-				f3 = env_get("board");
-				f4 = ".dtb";
+				bootm_argv[3] = NULL;
 			}
-
-			len = strlen(label->fdtdir);
-			if (!len)
-				slash = "./";
-			else if (label->fdtdir[len - 1] != '/')
-				slash = "/";
-			else
-				slash = "";
-
-			len = strlen(label->fdtdir) + strlen(slash) +
-				strlen(f1) + strlen(f2) + strlen(f3) +
-				strlen(f4) + 1;
-			fdtfilefree = malloc(len);
-			if (!fdtfilefree) {
-				printf("malloc fail (FDT filename)\n");
-				return 1;
-			}
-
-			snprintf(fdtfilefree, len, "%s%s%s%s%s%s",
-				 label->fdtdir, slash, f1, f2, f3, f4);
-			fdtfile = fdtfilefree;
-		}
-
-		if (fdtfile) {
-			int err = get_relfile_envaddr(cmdtp, fdtfile, "fdt_addr_r");
-			free(fdtfilefree);
-			if (err < 0) {
-				printf("Skipping %s for failure retrieving fdt\n",
-						label->name);
-				return 1;
-			}
-		} else {
-			bootm_argv[3] = NULL;
 		}
 	}
 

@@ -113,6 +113,7 @@
 	"name=userdata,size=-,uuid=${uuid_gpt_userdata};\0"
 
 #define RKIMG_DET_BOOTDEV \
+	"fdtfile=" CONFIG_DEFAULT_DEVICE_TREE ".dtb" "\0" \
 	"rkimg_bootdev=" \
 	"if mmc dev 1; then " \
 		"setenv devtype mmc; setenv devnum 1; echo Boot from SDcard;" \
