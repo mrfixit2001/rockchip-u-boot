@@ -75,8 +75,6 @@ static inline int rkusb_cmd_process(struct fsg_common *common,
 #define RKUSB_CABLE_READY_TIMEOUT	60
 #define SECTOR_SIZE			0x200
 
-#define RKUSB_READ_LIMIT_ADDR	        (32 * 2048)	/* 32MB */
-
 struct rockusb {
 	struct ums *ums;
 	int ums_cnt;
