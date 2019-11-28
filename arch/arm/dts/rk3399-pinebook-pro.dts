@@ -234,6 +234,19 @@
 		vin-supply = <&dc_12v>;
 	};
 */
+
+	vcc3v3_pcie: vcc3v3-pcie-regulator {
+		compatible = "regulator-fixed";
+		enable-active-high;
+		gpio = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie_pwr_en>;
+		regulator-name = "vcc3v3_pcie";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&dc_12v>;
+	};
+
 	vcc1v8_sdio: vcca1v8_sdio: vcc1v8-sdio {
 		u-boot,dm-pre-reloc;
 		compatible = "regulator-fixed";
@@ -341,6 +354,21 @@
 	status = "okay";
 };
 
+&pcie_phy {
+	status = "okay";
+};
+
+&pcie0 {
+	ep-gpios = <&gpio2 RK_PD4 GPIO_ACTIVE_HIGH>;
+	num-lanes = <4>;
+	max-link-speed = <2>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie_clkreqn_cpm>;
+	vpcie3v3-supply = <&vcc3v3_pcie>;
+	bus-scan-delay-ms = <1000>;
+	status = "okay";
+};
+
 &sdio0 {
 	u-boot,dm-pre-reloc;
 	clock-frequency = <50000000>;
@@ -360,6 +388,7 @@
 	vqmmc-supply = <&vcc1v8_sdio>;	/* IO line */
 	vmmc-supply = <&vcc3v0_sdio>;		/* card's power */
 	status = "okay";
+	defer_pcie = <2000>;
 };
 
 &sdmmc {
