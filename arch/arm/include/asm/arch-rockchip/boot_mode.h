@@ -24,8 +24,4 @@
 
 int setup_boot_mode(void);
 
-#ifndef __ASSEMBLY__
-void boot_devtype_init(void);
-#endif
-
 #endif

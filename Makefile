@@ -682,6 +682,7 @@ libs-$(CONFIG_SYS_FSL_DDR) += drivers/ddr/fsl/
 libs-$(CONFIG_SYS_FSL_MMDC) += drivers/ddr/fsl/
 libs-$(CONFIG_ALTERA_SDRAM) += drivers/ddr/altera/
 libs-y += drivers/serial/
+libs-y += drivers/usb/cdns3/
 libs-y += drivers/usb/dwc3/
 libs-y += drivers/usb/common/
 libs-y += drivers/usb/emul/
@@ -887,6 +888,9 @@ endif
 quiet_cmd_copy = COPY    $@
       cmd_copy = cp $< $@
 
+quiet_cmd_truncate = ALIGN   $@
+      cmd_truncate = truncate -s "%8" $@
+
 ifeq ($(CONFIG_MULTI_DTB_FIT),y)
 
 fit-dtb.blob: dts/dt.dtb FORCE
@@ -904,13 +908,26 @@ u-boot.bin: u-boot-fit-dtb.bin FORCE
 else ifeq ($(CONFIG_OF_SEPARATE),y)
 ifeq ($(CONFIG_USING_KERNEL_DTB),y)
 u-boot-dtb.bin: u-boot-nodtb.bin dts/dt-spl.dtb FORCE
-else
-u-boot-dtb.bin: u-boot-nodtb.bin dts/dt.dtb FORCE
-endif
 	$(call if_changed,cat)
 
+ifneq ($(wildcard dts/kern.dtb),)
+u-boot-dtb-kern.bin: u-boot-dtb.bin FORCE
+	$(call if_changed,copy)
+	$(call if_changed,truncate)
+u-boot.bin: u-boot-dtb-kern.bin dts/kern.dtb FORCE
+	$(call if_changed,cat)
+else
 u-boot.bin: u-boot-dtb.bin FORCE
 	$(call if_changed,copy)
+	$(call if_changed,truncate)
+endif
+else
+
+u-boot-dtb.bin: u-boot-nodtb.bin dts/dt.dtb FORCE
+	$(call if_changed,cat)
+u-boot.bin: u-boot-dtb.bin FORCE
+	$(call if_changed,copy)
+endif
 else
 u-boot.bin: u-boot-nodtb.bin FORCE
 	$(call if_changed,copy)

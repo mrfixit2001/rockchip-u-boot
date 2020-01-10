@@ -1262,6 +1262,8 @@ static inline int fit_image_check_target_arch(const void *fdt, int node)
 
 #if defined(CONFIG_ANDROID_BOOT_IMAGE)
 struct andr_img_hdr;
+u32 android_bcb_msg_sector_offset(void);
+u32 android_image_major_version(void);
 int android_image_check_header(const struct andr_img_hdr *hdr);
 int android_image_get_kernel(const struct andr_img_hdr *hdr, int verify,
 			     ulong *os_data, ulong *os_len);
@@ -1274,29 +1276,9 @@ ulong android_image_get_end(const struct andr_img_hdr *hdr);
 ulong android_image_get_kload(const struct andr_img_hdr *hdr);
 void android_print_contents(const struct andr_img_hdr *hdr);
 
-/** android_image_load_separate - Load an Android Image separate from storage
- *
- * Load an Android Image based on the header size in the storage.
- *
- * @hdr:		The android image header
- * @part:		The partition where to read the image from
- * @load_address:	The address where the image will be loaded
- * @ram_src:		The ram source to load, if NULL load from partition
- * @return the blk count.
- */
-int android_image_load_separate(struct andr_img_hdr *hdr,
-				const disk_partition_t *part,
-				void *load_address, void *ram_src);
-
-/** android_image_load_separate - Memcpy an Android Image separate from ram
- *
- * Memcpy an Android Image based on the header size in the ram.
- *
- * @hdr:		The android image header and memcpy base address
- * @load_address:	The address where the image will be loaded
- * @return the blk count.
- */
-int android_image_memcpy_separate(struct andr_img_hdr *hdr, void *load_address);
+void android_image_set_decomp(struct andr_img_hdr *hdr, int comp);
+int android_image_parse_comp(struct andr_img_hdr *hdr, ulong *load_addr);
+int android_image_memcpy_separate(struct andr_img_hdr *hdr, ulong *load_address);
 
 /** android_image_load - Load an Android Image from storage.
  *
@@ -1318,6 +1300,9 @@ long android_image_load(struct blk_desc *dev_desc,
 			unsigned long load_address,
 			unsigned long max_size);
 
+int android_image_load_by_partname(struct blk_desc *dev_desc,
+				   const char *boot_partname,
+				   unsigned long *load_address);
 #endif /* CONFIG_ANDROID_BOOT_IMAGE */
 
 int bootm_parse_comp(const unsigned char *hdr);
