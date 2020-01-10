@@ -38,7 +38,6 @@ static int xhci_usb_ofdata_to_platdata(struct udevice *dev)
 {
 	struct rockchip_xhci_platdata *plat = dev_get_platdata(dev);
 	int ret = 0;
-	const void *blob = gd->fdt_blob;
 
 	printf("device name %s\n", dev->name);
 
