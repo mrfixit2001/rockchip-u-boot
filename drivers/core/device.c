@@ -70,8 +70,9 @@ static int device_bind_common(struct udevice *parent, const struct driver *drv,
 
 		list_for_each_entry_safe(dev, n, &uc->dev_head, uclass_node) {
 			if (!strcmp(name, dev->name) &&
-			    dev_read_bool(dev, "u-boot,dm-pre-reloc")) {
-				if (drv->id == UCLASS_SERIAL || drv->id == UCLASS_CRYPTO) {
+			    (dev_read_bool(dev, "u-boot,dm-pre-reloc") ||
+			     dev_read_bool(dev, "u-boot,dm-spl"))) {
+				if (drv->id == UCLASS_CRYPTO) {
 					/* Always use serial node from U-Boot dtb */
 					debug("%s do not delete uboot dev: %s\n",
 					      __func__, dev->name);

@@ -4,6 +4,7 @@
 
 obj-$(CONFIG_$(SPL_TPL_)CLK) += clk/
 obj-$(CONFIG_$(SPL_TPL_)DM) += core/
+obj-$(CONFIG_$(SPL_TPL_)DM_CRYPTO) += crypto/
 obj-$(CONFIG_$(SPL_TPL_)DRIVERS_MISC_SUPPORT) += misc/ sysreset/ firmware/
 obj-$(CONFIG_$(SPL_TPL_)I2C_SUPPORT) += i2c/
 obj-$(CONFIG_$(SPL_TPL_)LED) += led/
@@ -41,9 +42,12 @@ obj-$(CONFIG_SPL_PCI_SUPPORT) += pci/
 obj-$(CONFIG_SPL_PCH_SUPPORT) += pch/
 obj-$(CONFIG_SPL_RTC_SUPPORT) += rtc/
 obj-$(CONFIG_SPL_MUSB_NEW_SUPPORT) += usb/musb-new/
-obj-$(CONFIG_SPL_USB_GADGET_SUPPORT) += usb/gadget/
-obj-$(CONFIG_SPL_USB_GADGET_SUPPORT) += usb/gadget/udc/
-obj-$(CONFIG_SPL_DFU_SUPPORT) += dfu/
+obj-$(CONFIG_SPL_USB_GADGET) += usb/gadget/
+obj-$(CONFIG_SPL_USB_GADGET) += usb/gadget/udc/
+obj-$(CONFIG_SPL_USB_GADGET) += usb/gadget/
+obj-$(CONFIG_SPL_USB_GADGET) += usb/common/
+obj-$(CONFIG_SPL_USB_GADGET) += usb/gadget/udc/
+obj-$(CONFIG_SPL_DFU) += dfu/
 obj-$(CONFIG_SPL_WATCHDOG_SUPPORT) += watchdog/
 obj-$(CONFIG_SPL_USB_HOST_SUPPORT) += usb/host/
 obj-$(CONFIG_OMAP_USB_PHY) += usb/phy/
