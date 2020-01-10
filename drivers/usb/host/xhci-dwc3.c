@@ -114,51 +114,6 @@ void dwc3_set_fladj(struct dwc3 *dwc3_reg, u32 val)
 }
 
 #if CONFIG_IS_ENABLED(DM_USB)
-static int xhci_dwc3_setup_phy(struct udevice *dev, int index, struct phy *phy)
-{
-	int ret = 0;
-
-	ret = generic_phy_get_by_index(dev, index, phy);
-	if (ret) {
-		if (ret != -ENOENT) {
-			pr_err("Failed to get USB PHY for %s\n", dev->name);
-			return ret;
-		}
-	} else {
-		ret = generic_phy_init(phy);
-		if (ret) {
-			pr_err("Can't init USB PHY for %s\n", dev->name);
-			return ret;
-		}
-
-		ret = generic_phy_power_on(phy);
-		if (ret) {
-			pr_err("Can't power on USB PHY for %s\n", dev->name);
-			generic_phy_exit(phy);
-			return ret;
-		}
-	}
-
-	return 0;
-}
-
-static int xhci_dwc3_shutdown_phy(struct phy *phy)
-{
-	int ret = 0;
-
-	if (generic_phy_valid(phy)) {
-		ret = generic_phy_power_off(phy);
-		if (ret)
-			return ret;
-
-		ret = generic_phy_exit(phy);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
 static int xhci_dwc3_probe(struct udevice *dev)
 {
 	struct xhci_hcor *hcor;
@@ -218,6 +173,7 @@ static int xhci_dwc3_probe(struct udevice *dev)
 static int xhci_dwc3_remove(struct udevice *dev)
 {
 	struct xhci_dwc3_platdata *plat = dev_get_platdata(dev);
+	int ret;
 
 	ret = dwc3_shutdown_phy(dev, plat->usb_phys, plat->num_phys);
 	if (ret)
