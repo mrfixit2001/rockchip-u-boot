@@ -48,6 +48,12 @@
 	#define BOOT_TARGET_MMC0(func)
 #endif
 
+#if (CONFIG_IS_ENABLED(CMD_NVME) && CONFIG_IS_ENABLED(CMD_CACHE) && CONFIG_IS_ENABLED(CMD_PCI))
+	#define BOOT_TARGET_NVME(func) func(NVME, nvme, 0)
+#else
+	#define BOOT_TARGET_NVME(func)
+#endif
+
 #if CONFIG_IS_ENABLED(CMD_RKNAND)
 	#define BOOT_TARGET_RKNAND(func) func(RKNAND, rknand, 0)
 #else
@@ -74,6 +80,7 @@
 
 #define BOOT_TARGET_DEVICES(func) \
 	BOOT_TARGET_MMC1(func) \
+	BOOT_TARGET_NVME(func) \
 	BOOT_TARGET_RKNAND(func) \
 	BOOT_TARGET_USB(func) \
 	BOOT_TARGET_MMC0(func) \
@@ -117,6 +124,8 @@
 	"rkimg_bootdev=" \
 	"if mmc dev 1; then " \
 		"setenv devtype mmc; setenv devnum 1; echo Boot from SDcard;" \
+	"elif nvme dev 0; then " \
+		"setenv devtype nvme; setenv devnum 0; echo Boot from NVMe;" \
 	"elif mmc dev 0; then " \
 		"setenv devtype mmc; setenv devnum 0; echo Boot from eMMC" \
 	"elif mtd_blk dev 0; then " \
