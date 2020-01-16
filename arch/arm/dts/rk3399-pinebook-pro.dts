@@ -393,17 +393,14 @@
 
 &sdmmc {
 	u-boot,dm-spl;
-	clock-frequency = <50000000>;
-	max-frequency = <150000000>;
+	//clock-frequency = <50000000>;
+	max-frequency = <100000000>;
 	supports-sd;
 	bus-width = <4>;
 	cap-mmc-highspeed;
 	cap-sd-highspeed;
 	disable-wp;
 	num-slots = <1>;
-	sd-uhs-sdr12;
-	sd-uhs-sdr25;
-	sd-uhs-sdr50;
 	sd-uhs-sdr104;
 	vqmmc-supply = <&vcc_sd>;
 	vmmc-supply = <&vcc3v0_sdio>;
