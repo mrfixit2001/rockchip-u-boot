@@ -450,8 +450,6 @@ static int dwc3_core_init(struct dwc3 *dwc)
 		goto err0;
 	}
 
-	dwc3_phy_setup(dwc);
-
 	ret = dwc3_core_soft_reset(dwc);
 	if (ret)
 		goto err0;
@@ -525,6 +523,8 @@ static int dwc3_core_init(struct dwc3 *dwc)
 	dwc3_core_num_eps(dwc);
 
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
+
+	dwc3_phy_setup(dwc);
 
 	ret = dwc3_alloc_scratch_buffers(dwc);
 	if (ret)
@@ -723,6 +723,7 @@ int dwc3_uboot_init(struct dwc3_device *dwc3_dev)
 	dwc->rx_detect_poll_quirk = dwc3_dev->rx_detect_poll_quirk;
 	dwc->dis_u3_susphy_quirk = dwc3_dev->dis_u3_susphy_quirk;
 	dwc->dis_u2_susphy_quirk = dwc3_dev->dis_u2_susphy_quirk;
+	dwc->dis_u1u2_quirk = dwc3_dev->dis_u2_susphy_quirk;
 
 	dwc->tx_de_emphasis_quirk = dwc3_dev->tx_de_emphasis_quirk;
 	if (dwc3_dev->tx_de_emphasis)
