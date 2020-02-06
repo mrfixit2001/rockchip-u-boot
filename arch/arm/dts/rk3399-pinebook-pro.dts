@@ -142,13 +142,6 @@
 		regulator-boot-on;
 	};
 
-	clkin_gmac: external-gmac-clock {
-		compatible = "fixed-clock";
-		clock-frequency = <125000000>;
-		clock-output-names = "clkin_gmac";
-		#clock-cells = <0>;
-	};
-
 	backlight: backlight {
 		status = "okay";
 		compatible = "pwm-backlight";
@@ -218,22 +211,6 @@
 			};
 		};
 	};
-/*
-	vcc12v_pcie: vcc12v-pcie-regulator {
-		u-boot,dm-pre-reloc;
-		compatible = "regulator-fixed";
-		regulator-name = "vcc12v_pcie";
-		regulator-min-microvolt = <12000000>;
-		regulator-max-microvolt = <12000000>;
-		enable-active-high;
-		gpio = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pcie_pwr_en>;
-		regulator-always-on;
-		regulator-boot-on;
-		vin-supply = <&dc_12v>;
-	};
-*/
 
 	vcc3v3_pcie: vcc3v3-pcie-regulator {
 		compatible = "regulator-fixed";
@@ -338,6 +315,21 @@
 	status = "okay";
 };
 
+&pcie_phy {
+	status = "okay";
+};
+
+&pcie0 {
+	ep-gpios = <&gpio2 RK_PD4 GPIO_ACTIVE_HIGH>;
+	num-lanes = <4>;
+	max-link-speed = <2>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie_clkreqn_cpm>;
+	vpcie3v3-supply = <&vcc3v3_pcie>;
+	bus-scan-delay-ms = <1000>;
+	status = "okay";
+};
+
 &pwm0 {
 	u-boot,dm-pre-reloc;
 	status = "okay";
@@ -351,21 +343,6 @@
 };
 
 &saradc {
-	status = "okay";
-};
-
-&pcie_phy {
-	status = "okay";
-};
-
-&pcie0 {
-	ep-gpios = <&gpio2 RK_PD4 GPIO_ACTIVE_HIGH>;
-	num-lanes = <4>;
-	max-link-speed = <2>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pcie_clkreqn_cpm>;
-	vpcie3v3-supply = <&vcc3v3_pcie>;
-	bus-scan-delay-ms = <1000>;
 	status = "okay";
 };
 
@@ -387,8 +364,8 @@
 	sd-uhs-sdr104;
 	vqmmc-supply = <&vcc1v8_sdio>;	/* IO line */
 	vmmc-supply = <&vcc3v0_sdio>;		/* card's power */
-	status = "okay";
 	defer_pcie = <2000>;
+	status = "okay";
 };
 
 &sdmmc {
@@ -487,26 +464,23 @@
 };
 
 &dwc3_typec0 {
+	vbus-supply = <&vcc5v0_host>;
 	status = "okay";
 	maximum-speed = "high-speed";
-	phyreg = <0x0 0xff7c0000 0x0 0x40000>;
 };
 
 &dwc3_typec1 {
 	vbus-supply = <&vcc5v0_host>;
 	status = "okay";
 	maximum-speed = "high-speed";
-	phyreg = <0x0 0xff800000 0x0 0x40000>;
 };
 
 &typec_phy0 {
 	status = "okay";
-	reg = <0x0 0xff7c0000 0x0 0x40000>;
 };
 
 &typec_phy1 {
 	status = "okay";
-	reg = <0x0 0xff800000 0x0 0x40000>;
 };
 
 &i2c0 {
@@ -591,6 +565,18 @@
 				};
 			};
 
+			vcca3v0_codec: LDO_REG5 {
+				regulator-name = "vcca3v0_codec";
+				regulator-min-microvolt = <3000000>;
+				regulator-max-microvolt = <3000000>;
+				regulator-always-on;
+				regulator-boot-on;
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <3000000>;
+				};
+			};
+
 			vcca1v8_codec: LDO_REG7 {
 				regulator-name = "vcca1v8_codec";
 				regulator-min-microvolt = <1800000>;
@@ -650,9 +636,7 @@
 	status = "okay";
 
 	bt656-supply = <&vcc1v8_dvp>;
-//	bt656-supply = <&vcc_3v0>;
-	audio-supply = <&vcca1v8_codec>;
-//	audio-supply = <&vcc_3v0>;
+	audio-supply = <&vcca3v0_codec>;
 	sdmmc-supply = <&vcc_sd>;
 	gpio1830-supply = <&vcc_3v0>;
 };
@@ -778,42 +762,10 @@
 	};
 };
 
-/*
-&gmac {
-        phy-supply = <&vcc_phy>;
-	phy-mode = "rgmii";
-	clock_in_out = "input";
-	snps,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
-	snps,reset-active-low;
-	snps,reset-delays-us = <0 10000 50000>;
-	assigned-clocks = <&cru SCLK_RMII_SRC>;
-	assigned-clock-parents = <&clkin_gmac>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&rgmii_pins>;
-	tx_delay = <0x28>;
-	rx_delay = <0x20>;
-	status = "okay";
-};
-*/
-
 &display_subsystem {
 	status = "okay";
 	logo-memory-region = <&drm_logo>;
 };
-
-/*
-&route_hdmi {
-	status = "okay";
-};
-
-&hdmi_in_vopl {
-	status = "disabled";
-};
-
-&hdmi_in_vopb {
-	status = "okay";
-};
-*/
 
 &route_edp {
 	status = "okay";
