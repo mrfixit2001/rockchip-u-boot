@@ -546,14 +546,10 @@ config SPL_MMC_SUPPORT
 	default y if !SPL_ROCKCHIP_BACK_TO_BROM
 
 config RKIMG_BOOTLOADER
-	bool "Support for Rockchip Image Bootloader boot flow"
-	default n
+	bool "Support for Rockchip platform features"
+	default y
 	help
-	  Rockchip use this to boot Android during development cycle and for
-	  other OS, typical content kernel.img with zImage/Image, boot.img and
-	  recovery.img with Ramdisk, packed with 'KNRL' header; and resource.img
-	  with dtb and uboot/kernel logo bmp, vendor storage for custom info
-	  like SN and MAC address.
+	  Actually this is a compatible configure for code compilation.
 
 config RKIMG_ANDROID_BOOTMODE_LEGACY
 	bool "Support set androidboot.mode with legacy rule"
@@ -588,9 +584,25 @@ config ROCKCHIP_USB_BOOT
 	help
 	  This enables support for rockchip U-disk boot.
 
+config ROCKCHIP_FIT_IMAGE
+	bool "Enable support for FIT image"
+	depends on FIT && USING_KERNEL_DTB
+	select CMD_BOOT_FIT
+	default n
+	help
+	  This enables loading dtb from fit image.
+
+config ROCKCHIP_UIMAGE
+	bool "Enable support for legacy uImage"
+	depends on !FIT_SIGNATURE && USING_KERNEL_DTB
+	select CMD_BOOT_UIMAGE
+	default n
+	help
+	  This enables loading dtb from uImage image.
+
 config ROCKCHIP_EARLY_DISTRO_DTB
 	bool "Enable support for distro dtb early"
-	depends on DISTRO_DEFAULTS && USING_KERNEL_DTB
+	depends on DISTRO_DEFAULTS && USING_KERNEL_DTB && CMD_FS_GENERIC
 	default n
 	help
 	  This enables loading dtb from distro bootable partition when there

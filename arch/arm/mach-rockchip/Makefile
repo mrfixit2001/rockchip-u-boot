@@ -21,12 +21,16 @@ ifeq ($(CONFIG_SPL_BUILD)$(CONFIG_TPL_BUILD),)
 # we can have the preprocessor correctly recognise both 0x0 and 0
 # meaning "turn it off".
 obj-y += boot_mode.o
+obj-y += boot_rkimg.o
 obj-y += board.o
 obj-y += chip_info.o
 obj-y += iomem.o
 obj-y += memblk.o
 obj-y += hotkey.o
 
+obj-$(CONFIG_USING_KERNEL_DTB) += kernel_dtb.o
+obj-$(CONFIG_ROCKCHIP_FIT_IMAGE) += fit.o
+obj-$(CONFIG_ROCKCHIP_UIMAGE) += uimage.o
 obj-$(CONFIG_ROCKCHIP_SMCCC) += rockchip_smccc.o
 obj-$(CONFIG_ROCKCHIP_VENDOR_PARTITION) += vendor.o
 obj-$(CONFIG_ROCKCHIP_RESOURCE_IMAGE) += resource_img.o
@@ -35,6 +39,7 @@ endif
 
 obj-$(CONFIG_$(SPL_TPL_)RAM) += param.o
 obj-$(CONFIG_$(SPL_TPL_)RAM) += sdram.o
+obj-$(CONFIG_SPL_KERNEL_BOOT) += spl_resource_img.o
 
 obj-$(CONFIG_ROCKCHIP_PX30) += px30/
 obj-$(CONFIG_ROCKCHIP_RK3036) += rk3036/

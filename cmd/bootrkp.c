@@ -161,25 +161,6 @@ static void boot_lmb_init(bootm_headers_t *images)
 }
 #endif
 
-static void fdt_ramdisk_skip_relocation(void)
-{
-	char *ramdisk_high = env_get("initrd_high");
-	char *fdt_high = env_get("fdt_high");
-
-	if (!fdt_high) {
-		env_set_hex("fdt_high", -1UL);
-		printf("Fdt ");
-	}
-
-	if (!ramdisk_high) {
-		env_set_hex("initrd_high", -1UL);
-		printf("Ramdisk ");
-	}
-
-	if (!fdt_high || !ramdisk_high)
-		printf("skip relocation\n");
-}
-
 /*
  * non-OTA packaged kernel.img & boot.img return the image size on success,
  * and a negative value on error.
@@ -293,13 +274,11 @@ static int boot_rockchip_image(struct blk_desc *dev_desc,
 		}
 	}
 
+	env_set("bootm-no-reloc", "y");
+
 	printf("fdt	 @ 0x%08lx (0x%08x)\n", fdt_addr_r, fdt_totalsize(fdt_addr_r));
 	printf("kernel   @ 0x%08lx (0x%08x)\n", kernel_addr_r, kernel_size);
 	printf("ramdisk  @ 0x%08lx (0x%08x)\n", ramdisk_addr_r, ramdisk_size);
-
-	fdt_ramdisk_skip_relocation();
-	hotkey_run(HK_SYSMEM);
-	sysmem_overflow_check();
 
 #if defined(CONFIG_ARM64)
 	char cmdbuf[64];
@@ -321,13 +300,10 @@ static int boot_rockchip_image(struct blk_desc *dev_desc,
 		kaddr = kaddr_r;
 		ksize = kernel_size * 100 / 45 ; /* Ratio: 45% */
 		ksize = ALIGN(ksize, dev_desc->blksz);
-		if (!sysmem_alloc_base(MEMBLK_ID_UNCOMP_KERNEL,
+		if (!sysmem_alloc_base(MEM_UNCOMP_KERNEL,
 				       (phys_addr_t)kaddr, ksize))
 			return -ENOMEM;
 	}
-
-	hotkey_run(HK_SYSMEM);
-	sysmem_overflow_check();
 
 	boot_lmb_init(&images);
 	images.ep = kernel_addr_r;

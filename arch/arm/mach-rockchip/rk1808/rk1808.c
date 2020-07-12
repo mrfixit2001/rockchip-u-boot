@@ -65,11 +65,18 @@ enum {
 	UART2_IO_SEL_USB,
 };
 
+#define SECURE_FIRE_WALL 0xff590040
+
 int arch_cpu_init(void)
 {
 	/* Set cif qos priority */
 	writel(QOS_PRIORITY_LEVEL(2, 2), NIU_CIF_ADDR);
 	writel(QOS_PRIORITY_LEVEL(2, 2), NIU_ISP_ADDR);
+
+	/* Set dram to unsecure */
+#ifdef CONFIG_SPL_BUILD
+	writel(0, SECURE_FIRE_WALL);
+#endif
 
 	return 0;
 }
@@ -224,4 +231,15 @@ int rk_board_late_init(void)
 #endif
 
 	return 0;
+}
+
+void mmc_gpio_init_direct(void)
+{
+	static struct rk1808_grf * const grf = (void *)GRF_BASE;
+
+	/*
+	 * The rk1808's pin drive strength control must set to 2ma.
+	 */
+	rk_clrsetreg(&grf->gpio1a_e, 0xffff, 0x5555);
+	rk_clrsetreg(&grf->gpio1b_e, 0xff, 0x00);
 }

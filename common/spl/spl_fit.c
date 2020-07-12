@@ -174,6 +174,7 @@ static int spl_load_fit_image(struct spl_load_info *info, ulong sector,
 	int align_len = ARCH_DMA_MINALIGN - 1;
 	uint8_t image_comp = -1, type = -1;
 	const void *data;
+	bool external_data = false;
 
 	if (IS_ENABLED(CONFIG_SPL_OS_BOOT) && IS_ENABLED(CONFIG_SPL_GZIP)) {
 		if (fit_image_get_comp(fit, node, &image_comp))
@@ -190,9 +191,15 @@ static int spl_load_fit_image(struct spl_load_info *info, ulong sector,
 	if (fit_image_get_load(fit, node, &load_addr))
 		load_addr = image_info->load_addr;
 
-	if (!fit_image_get_data_offset(fit, node, &offset)) {
-		/* External data */
+	if (!fit_image_get_data_position(fit, node, &offset)) {
+		external_data = true;
+	} else if (!fit_image_get_data_offset(fit, node, &offset)) {
 		offset += base_offset;
+		external_data = true;
+	}
+
+	if (external_data) {
+		/* External data */
 		if (fit_image_get_data_size(fit, node, &len))
 			return -ENOENT;
 
@@ -225,6 +232,19 @@ static int spl_load_fit_image(struct spl_load_info *info, ulong sector,
 		      (unsigned long)length);
 		src = (void *)data;
 	}
+
+#ifdef CONFIG_SPL_FIT_SIGNATURE
+	printf("## Checking hash(es) for Image %s ... ",
+	       fit_get_name(fit, node, NULL));
+#ifdef CONFIG_FIT_SPL_PRINT
+	printf("\n");
+	fit_image_print(fit, node, "");
+#endif
+	if (!fit_image_verify_with_data(fit, node,
+					 src, length))
+		return -EPERM;
+	puts("OK\n");
+#endif
 
 #ifdef CONFIG_SPL_FIT_IMAGE_POST_PROCESS
 	board_fit_image_post_process(&src, &length);
@@ -339,8 +359,8 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 	 * image.
 	 */
 	size = fdt_totalsize(fit);
-	size = (size + 3) & ~3;
-	base_offset = (size + 3) & ~3;
+	size = FIT_ALIGN(size);
+	base_offset = FIT_ALIGN(size);
 
 	/*
 	 * So far we only have one block of data from the FIT. Read the entire
@@ -375,6 +395,21 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 		return -1;
 	}
 
+	/* verify the configure node by keys, if required */
+#ifdef CONFIG_SPL_FIT_SIGNATURE
+	int conf_noffset;
+
+	conf_noffset = fit_conf_get_node(fit, NULL);
+	if (conf_noffset > 0) {
+		ret = fit_config_verify(fit, conf_noffset);
+		if (ret) {
+			printf("fit verify configure failed, ret=%d\n", ret);
+			return ret;
+		}
+		printf("\n");
+	}
+#endif
+
 	/*
 	 * Find the U-Boot image using the following search order:
 	 *   - start at 'firmware' (e.g. an ARM Trusted Firmware)
@@ -382,7 +417,8 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 	 *   - fall back to using the first 'loadables' entry
 	 */
 	if (node < 0)
-		node = spl_fit_get_image_node(fit, images, "firmware", 0);
+		node = spl_fit_get_image_node(fit, images, FIT_FIRMWARE_PROP,
+					      0);
 #ifdef CONFIG_SPL_OS_BOOT
 	if (node < 0)
 		node = spl_fit_get_image_node(fit, images, FIT_KERNEL_PROP, 0);

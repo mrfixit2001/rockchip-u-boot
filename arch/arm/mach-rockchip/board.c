@@ -6,6 +6,8 @@
 
 #include <common.h>
 #include <amp.h>
+#include <android_bootloader.h>
+#include <android_image.h>
 #include <bidram.h>
 #include <boot_rkimg.h>
 #include <cli.h>
@@ -525,7 +527,7 @@ int init_kernel_dtb(void)
 }
 #endif
 
-void board_env_fixup(void)
+static void env_fixup(void)
 {
 	struct memblock mem;
 	ulong u_addr_r;
@@ -568,20 +570,53 @@ void board_env_fixup(void)
 	}
 }
 
-static void early_download_init(void)
+static void cmdline_handle(void)
+{
+#ifdef CONFIG_ROCKCHIP_PRELOADER_ATAGS
+	struct tag *t;
+
+	t = atags_get_tag(ATAG_PUB_KEY);
+	if (t) {
+		/* Pass if efuse/otp programmed */
+		if (t->u.pub_key.flag == PUBKEY_FUSE_PROGRAMMED)
+			env_update("bootargs", "fuse.programmed=1");
+		else
+			env_update("bootargs", "fuse.programmed=0");
+	}
+#endif
+}
+
+int board_late_init(void)
+{
+	rockchip_set_ethaddr();
+	rockchip_set_serialno();
+	setup_download_mode();
+#if (CONFIG_ROCKCHIP_BOOT_MODE_REG > 0)
+	setup_boot_mode();
+#endif
+#ifdef CONFIG_ROCKCHIP_USB_BOOT
+	boot_from_udisk();
+#endif
+#ifdef CONFIG_DM_CHARGE_DISPLAY
+	charge_display();
+#endif
+#ifdef CONFIG_DRM_ROCKCHIP
+	rockchip_show_logo();
+#endif
+	env_fixup();
+	soc_clk_dump();
+	cmdline_handle();
+
+	return rk_board_late_init();
+}
+
+static void early_download(void)
 {
 #if defined(CONFIG_PWRKEY_DNL_TRIGGER_NUM) && \
 		(CONFIG_PWRKEY_DNL_TRIGGER_NUM > 0)
 	if (pwrkey_download_init())
 		printf("Pwrkey download init failed\n");
 #endif
-
-	if (!tstc())
-		return;
-
-	gd->console_evt = getc();
-	if (gd->console_evt <= 0x1a) /* 'z' */
-		printf("Hotkey: ctrl+%c\n", (gd->console_evt + 'a' - 1));
 
 #if (CONFIG_ROCKCHIP_BOOT_MODE_REG > 0)
 	if (is_hotkey(HK_BROM_DNL)) {
@@ -598,6 +633,15 @@ static void board_debug_init(void)
 {
 	if (!gd->serial.using_pre_serial)
 		board_debug_uart_init();
+
+	if (tstc()) {
+		gd->console_evt = getc();
+		if (gd->console_evt <= 0x1a) /* 'z' */
+			printf("Hotkey: ctrl+%c\n", gd->console_evt + 'a' - 1);
+	}
+
+	if (IS_ENABLED(CONFIG_CONSOLE_DISABLE_CLI))
+		printf("CLI: off\n");
 }
 
 int board_init(void)
@@ -611,7 +655,7 @@ int board_init(void)
 #ifdef CONFIG_USING_KERNEL_DTB
 	init_kernel_dtb();
 #endif
-	early_download_init();
+	early_download();
 
 	/*
 	 * pmucru isn't referenced on some platforms, so pmucru driver can't
@@ -709,11 +753,6 @@ void board_quiesce_devices(void)
 	/* Destroy atags makes next warm boot safer */
 	atags_destroy();
 #endif
-
-#if defined(CONFIG_CONSOLE_RECORD)
-	/* Print record console data */
-	console_record_print_purge();
-#endif
 }
 
 void enable_caches(void)
@@ -779,19 +818,19 @@ int board_bidram_reserve(struct bidram *bidram)
 
 	/* ATF */
 	mem = param_parse_atf_mem();
-	ret = bidram_reserve(MEMBLK_ID_ATF, mem.base, mem.size);
+	ret = bidram_reserve(MEM_ATF, mem.base, mem.size);
 	if (ret)
 		return ret;
 
 	/* PSTORE/ATAGS/SHM */
 	mem = param_parse_common_resv_mem();
-	ret = bidram_reserve(MEMBLK_ID_SHM, mem.base, mem.size);
+	ret = bidram_reserve(MEM_SHM, mem.base, mem.size);
 	if (ret)
 		return ret;
 
 	/* OP-TEE */
 	mem = param_parse_optee_mem();
-	ret = bidram_reserve(MEMBLK_ID_OPTEE, mem.base, mem.size);
+	ret = bidram_reserve(MEM_OPTEE, mem.base, mem.size);
 	if (ret)
 		return ret;
 
@@ -906,3 +945,155 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 	return 0;
 }
 #endif
+
+static void bootm_no_reloc(void)
+{
+	char *ramdisk_high;
+	char *fdt_high;
+
+	if (!env_get_yesno("bootm-no-reloc"))
+		return;
+
+	ramdisk_high = env_get("initrd_high");
+	fdt_high = env_get("fdt_high");
+
+	if (!fdt_high) {
+		env_set_hex("fdt_high", -1UL);
+		printf("Fdt ");
+	}
+
+	if (!ramdisk_high) {
+		env_set_hex("initrd_high", -1UL);
+		printf("Ramdisk ");
+	}
+
+	if (!fdt_high || !ramdisk_high)
+		printf("skip relocation\n");
+}
+
+int bootm_board_start(void)
+{
+	/*
+	 * print console record data
+	 *
+	 * On some rockchip platforms, uart debug and sdmmc pin are multiplex.
+	 * If boot from sdmmc mode, the console data would be record in buffer,
+	 * we switch to uart debug function in order to print it after loading
+	 * images.
+	 */
+#if defined(CONFIG_CONSOLE_RECORD)
+	if (!strcmp("mmc", env_get("devtype")) &&
+	    !strcmp("1", env_get("devnum"))) {
+		printf("IOMUX: sdmmc => uart debug");
+		pinctrl_select_state(gd->cur_serial_dev, "default");
+		console_record_print_purge();
+	}
+#endif
+	/* disable bootm relcation to save boot time */
+	bootm_no_reloc();
+
+	/* sysmem */
+	hotkey_run(HK_SYSMEM);
+	sysmem_overflow_check();
+
+	return 0;
+}
+
+/*
+ * Implement it to support CLI command:
+ *   - Android: bootm [aosp addr]
+ *   - FIT:     bootm [fit addr]
+ *   - uImage:  bootm [uimage addr]
+ *
+ * Purpose:
+ *   - The original bootm command args require fdt addr on AOSP,
+ *     which is not flexible on rockchip boot/recovery.img.
+ *   - Take Android/FIT/uImage image into sysmem management to avoid image
+ *     memory overlap.
+ */
+#if defined(CONFIG_ANDROID_BOOTLOADER) ||	\
+	defined(CONFIG_ROCKCHIP_FIT_IMAGE) ||	\
+	defined(CONFIG_ROCKCHIP_UIMAGE)
+int board_do_bootm(int argc, char * const argv[])
+{
+	int format;
+	void *img;
+
+	if (argc != 2)
+		return 0;
+
+	img = (void *)simple_strtoul(argv[1], NULL, 16);
+	format = (genimg_get_format(img));
+
+	/* Android */
+#ifdef CONFIG_ANDROID_BOOT_IMAGE
+	if (format == IMAGE_FORMAT_ANDROID) {
+		struct andr_img_hdr *hdr;
+		ulong load_addr;
+		ulong size;
+		int ret;
+
+		hdr = (struct andr_img_hdr *)img;
+		printf("BOOTM: transferring to board Android\n");
+
+#ifdef CONFIG_USING_KERNEL_DTB
+		sysmem_free((phys_addr_t)gd->fdt_blob);
+		/* erase magic */
+		fdt_set_magic((void *)gd->fdt_blob, ~0);
+		gd->fdt_blob = NULL;
+#endif
+		load_addr = env_get_ulong("kernel_addr_r", 16, 0);
+		load_addr -= hdr->page_size;
+		size = android_image_get_end(hdr) - (ulong)hdr;
+
+		if (!sysmem_alloc_base(MEM_ANDROID, (ulong)hdr, size))
+			return -ENOMEM;
+
+		ret = android_image_memcpy_separate(hdr, &load_addr);
+		if (ret) {
+			printf("board do bootm failed, ret=%d\n", ret);
+			return ret;
+		}
+
+		return android_bootloader_boot_kernel(load_addr);
+	}
+#endif
+
+	/* FIT */
+#if IMAGE_ENABLE_FIT
+	if (format == IMAGE_FORMAT_FIT) {
+		char boot_cmd[64];
+
+		printf("BOOTM: transferring to board FIT\n");
+		snprintf(boot_cmd, sizeof(boot_cmd), "boot_fit %s", argv[1]);
+		return run_command(boot_cmd, 0);
+	}
+#endif
+
+	/* uImage */
+#if defined(CONFIG_IMAGE_FORMAT_LEGACY)
+	if (format == IMAGE_FORMAT_LEGACY &&
+	    image_get_type(img) == IH_TYPE_MULTI) {
+		char boot_cmd[64];
+
+		printf("BOOTM: transferring to board uImage\n");
+		snprintf(boot_cmd, sizeof(boot_cmd), "boot_uimage %s", argv[1]);
+		return run_command(boot_cmd, 0);
+	}
+#endif
+
+	return 0;
+}
+#endif
+
+void autoboot_command_fail_handle(void)
+{
+#ifdef CONFIG_AVB_VBMETA_PUBLIC_KEY_VALIDATE
+#ifdef CONFIG_ANDROID_AB
+	run_command("fastboot usb 0;", 0);  /* use fastboot to ative slot */
+#else
+	run_command("rockusb 0 ${devtype} ${devnum}", 0);
+	run_command("fastboot usb 0;", 0);
+#endif
+#endif
+}
