@@ -198,8 +198,12 @@ ulong android_image_get_end(const struct andr_img_hdr *hdr)
 	end += ALIGN(hdr->ramdisk_size, hdr->page_size);
 	end += ALIGN(hdr->second_size, hdr->page_size);
 
-	if (hdr->header_version >= 1)
+	if (hdr->header_version >= 2) {
 		end += ALIGN(hdr->recovery_dtbo_size, hdr->page_size);
+		end += ALIGN(hdr->dtb_size, hdr->page_size);
+	} else if (hdr->header_version >= 1) {
+		end += ALIGN(hdr->recovery_dtbo_size, hdr->page_size);
+	}
 
 	return end;
 }
@@ -313,7 +317,7 @@ static int image_read(img_t img, struct andr_img_hdr *hdr,
 		ramdst = (void *)env_get_ulong("android_addr_r", 16, 0);
 		datasz = hdr->kernel_size + pgsz;
 		sizesz = sizeof(hdr->kernel_size);
-		if (!sysmem_alloc_base(MEMBLK_ID_KERNEL,
+		if (!sysmem_alloc_base(MEM_KERNEL,
 				(phys_addr_t)ramdst, blkcnt * blksz))
 			return -ENOMEM;
 		break;
@@ -323,7 +327,7 @@ static int image_read(img_t img, struct andr_img_hdr *hdr,
 		ramdst = (void *)env_get_ulong("ramdisk_addr_r", 16, 0);
 		datasz = hdr->ramdisk_size;
 		sizesz = sizeof(hdr->ramdisk_size);
-		if (datasz && !sysmem_alloc_base(MEMBLK_ID_RAMDISK,
+		if (datasz && !sysmem_alloc_base(MEM_RAMDISK,
 				(phys_addr_t)ramdst, blkcnt * blksz))
 			return -ENOMEM;
 		break;
@@ -411,8 +415,6 @@ static int android_image_separate(struct andr_img_hdr *hdr,
 				  void *load_address,
 				  void *ram_base)
 {
-	char *initrd_high;
-	char *fdt_high;
 	ulong bstart;
 
 	if (android_image_check_header(hdr)) {
@@ -500,22 +502,8 @@ static int android_image_separate(struct andr_img_hdr *hdr,
 	}
 #endif
 
-	/*
-	 * 2. Disable fdt/ramdisk relocation, it saves boot time.
-	 */
-	initrd_high = env_get("initrd_high");
-	fdt_high = env_get("fdt_high");
-
-	if (!fdt_high) {
-		env_set_hex("fdt_high", -1UL);
-		printf("Fdt ");
-	}
-	if (!initrd_high) {
-		env_set_hex("initrd_high", -1UL);
-		printf("Ramdisk ");
-	}
-	if (!fdt_high || !initrd_high)
-		printf("skip relocation\n");
+	/* 2. Disable fdt/ramdisk relocation, it saves boot time */
+	env_set("bootm-no-reloc", "y");
 
 	return 0;
 }
@@ -547,7 +535,7 @@ int android_image_parse_comp(struct andr_img_hdr *hdr, ulong *load_addr)
 		} else {
 			printf("Warn: No \"kernel_addr_c\"\n");
 			comp_addr = CONFIG_SYS_SDRAM_BASE + 0x2000000;/* 32M */
-			env_set_ulong("kernel_addr_c", comp_addr);
+			env_set_hex("kernel_addr_c", comp_addr);
 		}
 
 		*load_addr = comp_addr - hdr->page_size;
@@ -561,10 +549,14 @@ int android_image_parse_comp(struct andr_img_hdr *hdr, ulong *load_addr)
 	 * kernel_addr_r is for IMAGE when kernel_addr_c is defined.
 	 */
 	if (comp == IH_COMP_NONE) {
-		if (kernel_addr_c)
+		if (kernel_addr_c) {
 			*load_addr = env_get_ulong("kernel_addr_r", 16, 0);
-		else
+		} else {
 			*load_addr = CONFIG_SYS_SDRAM_BASE + 0x8000;
+			env_set_hex("kernel_addr_r", *load_addr);
+		}
+		
+		*load_addr -= hdr->page_size;
 	} else {
 		if (kernel_addr_c)
 			*load_addr = kernel_addr_c - hdr->page_size;

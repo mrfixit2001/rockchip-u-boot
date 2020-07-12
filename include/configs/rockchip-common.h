@@ -20,7 +20,11 @@
 
 #define CONFIG_SYS_NS16550_MEM32
 
+#ifdef CONFIG_SPL_BUILD
+#define CONFIG_NR_DRAM_BANKS		2
+#else
 #define CONFIG_NR_DRAM_BANKS		12
+#endif
 
 #ifndef CONFIG_SPL_BUILD
 #include <config_distro_defaults.h>
@@ -149,31 +153,17 @@
 #define BOOT_ANDROID_COMMAND
 #endif
 
-#ifdef CONFIG_AVB_VBMETA_PUBLIC_KEY_VALIDATE
-#ifndef CONFIG_ANDROID_AB
-#define RKIMG_BOOTCOMMAND \
-	BOOT_ANDROID_COMMAND \
-	"echo AVB boot failed and enter rockusb or fastboot!;" \
-	"rockusb 0 ${devtype} ${devnum};" \
-	"fastboot usb 0;"
+#if defined(CONFIG_AVB_VBMETA_PUBLIC_KEY_VALIDATE)
+#define RKIMG_BOOTCOMMAND			\
+	BOOT_ANDROID_COMMAND
 #else
-/*
- * Update images a/b and active slot with fastboot
- * when avb+ab system boot failed.
- * Remove rockusb since it unable to active slot.
- */
-#define RKIMG_BOOTCOMMAND \
-	BOOT_ANDROID_COMMAND \
-	"echo AVB boot failed and enter fastboot!;" \
-	"fastboot usb 0;"
-#endif /* CONFIG_ANDROID_AB */
-#else /* CONFIG_AVB_VBMETA_PUBLIC_KEY_VALIDATE */
-#define RKIMG_BOOTCOMMAND \
-	BOOT_ANDROID_COMMAND \
-	"bootrkp;" \
+#define RKIMG_BOOTCOMMAND			\
+	BOOT_ANDROID_COMMAND			\
+	"bootrkp;"				\
 	"run distro_bootcmd;"
 #endif
-#endif
+
+#endif /* CONFIG_SPL_BUILD */
 
 #define CONFIG_DISPLAY_BOARDINFO_LATE
 

@@ -142,7 +142,7 @@ static void init_display_buffer(ulong base)
 	memory_end = memory_start;
 }
 
-static void *get_display_buffer(int size)
+void *get_display_buffer(int size)
 {
 	unsigned long roundup_memory = roundup(memory_end, PAGE_SIZE);
 	void *buf;
@@ -163,7 +163,7 @@ static unsigned long get_display_size(void)
 	return memory_end - memory_start;
 }
 
-static bool can_direct_logo(int bpp)
+bool can_direct_logo(int bpp)
 {
 	return bpp == 24 || bpp == 32;
 }
@@ -540,6 +540,18 @@ static int display_init(struct display_state *state)
 		return -ENXIO;
 	}
 
+	if (crtc_state->crtc->active &&
+	    memcmp(&crtc_state->crtc->active_mode, &conn_state->mode,
+		   sizeof(struct drm_display_mode))) {
+		printf("%s has been used for output type: %d, mode: %dx%dp%d\n",
+			crtc_state->dev->name,
+			crtc_state->crtc->active_mode.type,
+			crtc_state->crtc->active_mode.hdisplay,
+			crtc_state->crtc->active_mode.vdisplay,
+			crtc_state->crtc->active_mode.vrefresh);
+		return -ENODEV;
+	}
+
 	if (panel_state->panel)
 		rockchip_panel_init(panel_state->panel);
 
@@ -614,6 +626,10 @@ static int display_init(struct display_state *state)
 	}
 	state->is_init = 1;
 
+	crtc_state->crtc->active = true;
+	memcpy(&crtc_state->crtc->active_mode,
+	       &conn_state->mode, sizeof(struct drm_display_mode));
+
 	return 0;
 
 deinit:
@@ -669,8 +685,6 @@ static int display_enable(struct display_state *state)
 	const struct rockchip_crtc *crtc = crtc_state->crtc;
 	const struct rockchip_crtc_funcs *crtc_funcs = crtc->funcs;
 	struct panel_state *panel_state = &state->panel_state;
-
-	display_init(state);
 
 	if (!state->is_init)
 		return -EINVAL;
@@ -755,10 +769,10 @@ static int display_logo(struct display_state *state)
 	struct crtc_state *crtc_state = &state->crtc_state;
 	struct connector_state *conn_state = &state->conn_state;
 	struct logo_info *logo = &state->logo;
-	int hdisplay, vdisplay;
+	int hdisplay, vdisplay, ret;
 
-	display_init(state);
-	if (!state->is_init)
+	ret = display_init(state);
+	if (!state->is_init || ret)
 		return -ENODEV;
 
 	switch (logo->bpp) {
@@ -925,9 +939,9 @@ static int load_kernel_bmp_logo(struct logo_info *logo, const char *bmp_name)
 	}
 
 	logo->mem = dst;
+#endif
 
 	return 0;
-#endif
 }
 
 static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
